@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.git
+.github
+.venv/
+venv/
+artifacts/
+docs/
+*.md
+*.csv
+*.png
+.env

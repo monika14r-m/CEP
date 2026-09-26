@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: ml-ids-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: "*"
+    healthCheckPath: /health

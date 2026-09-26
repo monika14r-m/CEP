@@ -1,0 +1,14 @@
+{
+  "duration": 0,
+  "protocol_type": "tcp",
+  "service": "http",
+  "flag": "SF",
+  "src_bytes": 232,
+  "dst_bytes": 8153,
+  "count": 5,
+  "srv_count": 5,
+  "same_srv_rate": 1.0,
+  "dst_host_count": 30,
+  "dst_host_srv_count": 30,
+  "logged_in": 1
+}
