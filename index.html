@@ -88,6 +88,9 @@ input[type=range]{flex:1; accent-color:var(--accent);}
 .agree{font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px;}
 .agree.yes{background:rgba(45,212,191,.13); color:var(--safe);}
 .agree.no{background:rgba(245,158,11,.15); color:#fbbf24;}
+.group-label{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted2); margin:16px 0 8px; font-weight:700;}
+.group-label:first-child{margin-top:0;}
+.dataset-note{font-size:11.5px; color:var(--muted2); margin:-2px 0 12px;}
 .model-row{
   display:flex; align-items:center; gap:14px; padding:12px 14px; border-radius:12px;
   background:rgba(255,255,255,.03); border:1px solid var(--panel-border); margin-bottom:10px;
@@ -140,7 +143,8 @@ footer{text-align:center; color:var(--muted2); font-size:11.5px; margin-top:30px
   </div>
 
   <div class="panel">
-    <label style="margin-bottom:10px;">Sample connections — pick one to score</label>
+    <label style="margin-bottom:4px;">Sample connections — pick one to score</label>
+    <p class="dataset-note" id="datasetNote">Dataset: built-in demo (8 illustrative connections). Connect a backend above to pull real, live-sampled traffic instead.</p>
     <div class="grid" id="cardGrid"></div>
   </div>
 
@@ -153,27 +157,30 @@ footer{text-align:center; color:var(--muted2); font-size:11.5px; margin-top:30px
     <p class="note" id="modeNote"></p>
   </div>
 
-  <footer>ML-based IDS · Decision Tree · Random Forest · Random Forest + SMOTE</footer>
+  <footer>ML-based IDS · Ours: Decision Tree, Random Forest, Random Forest + SMOTE · Baselines: SVM, KNN</footer>
 </div>
 
 <script>
-const SAMPLES = [
-  {id:1, name:"Normal — web browsing", label:"normal", proto:"tcp/http SF", dt:0.03, rf:0.02, sm:0.06},
-  {id:2, name:"Normal — file transfer", label:"normal", proto:"tcp/ftp_data SF", dt:0.05, rf:0.04, sm:0.09},
-  {id:3, name:"neptune — SYN flood", label:"attack", proto:"tcp/private S0", dt:0.97, rf:0.99, sm:0.98},
-  {id:4, name:"smurf — ICMP flood", label:"attack", proto:"icmp/ecr_i SF", dt:0.95, rf:0.98, sm:0.97},
-  {id:5, name:"satan — port probe", label:"attack", proto:"tcp/http_443 REJ", dt:0.31, rf:0.68, sm:0.82},
-  {id:6, name:"portsweep — port scan", label:"attack", proto:"tcp/private RSTR", dt:0.42, rf:0.71, sm:0.79},
-  {id:7, name:"back — buffer overflow", label:"attack", proto:"tcp/http S0", dt:0.22, rf:0.58, sm:0.74},
-  {id:8, name:"ipsweep — host scan", label:"attack", proto:"icmp/eco_i SF", dt:0.38, rf:0.61, sm:0.70},
+const DEMO_SAMPLES = [
+  {id:1, name:"Normal — web browsing", label:"normal", proto:"tcp/http SF", dt:0.03, rf:0.02, sm:0.06, svm:0.08, knn:0.10},
+  {id:2, name:"Normal — file transfer", label:"normal", proto:"tcp/ftp_data SF", dt:0.05, rf:0.04, sm:0.09, svm:0.11, knn:0.07},
+  {id:3, name:"neptune — SYN flood", label:"attack", proto:"tcp/private S0", dt:0.97, rf:0.99, sm:0.98, svm:0.94, knn:0.91},
+  {id:4, name:"smurf — ICMP flood", label:"attack", proto:"icmp/ecr_i SF", dt:0.95, rf:0.98, sm:0.97, svm:0.90, knn:0.93},
+  {id:5, name:"satan — port probe", label:"attack", proto:"tcp/http_443 REJ", dt:0.31, rf:0.68, sm:0.82, svm:0.44, knn:0.55},
+  {id:6, name:"portsweep — port scan", label:"attack", proto:"tcp/private RSTR", dt:0.42, rf:0.71, sm:0.79, svm:0.39, knn:0.62},
+  {id:7, name:"back — buffer overflow", label:"attack", proto:"tcp/http S0", dt:0.22, rf:0.58, sm:0.74, svm:0.29, knn:0.47},
+  {id:8, name:"ipsweep — host scan", label:"attack", proto:"icmp/eco_i SF", dt:0.38, rf:0.61, sm:0.70, svm:0.33, knn:0.58},
 ];
 const MODEL_META = [
-  {key:"dt", name:"Decision Tree", tag:"fast, interpretable"},
-  {key:"rf", name:"Random Forest", tag:"balanced, ensemble"},
-  {key:"sm", name:"Random Forest + SMOTE", tag:"tuned for recall"},
+  {key:"dt", name:"Decision Tree", tag:"fast, interpretable", group:"ours"},
+  {key:"rf", name:"Random Forest", tag:"balanced, ensemble", group:"ours"},
+  {key:"sm", name:"Random Forest + SMOTE", tag:"tuned for recall", group:"ours"},
+  {key:"svm", name:"SVM (linear)", tag:"baseline", group:"baseline"},
+  {key:"knn", name:"KNN (k=5)", tag:"baseline, slow at inference", group:"baseline"},
 ];
 
-let selected = null, threshold = 0.5, liveBase = null, liveModels = null;
+let SAMPLES = DEMO_SAMPLES;
+let selected = null, threshold = 0.5, liveBase = null, liveModels = null, liveMode = false;
 
 function renderCards(){
   const grid = document.getElementById("cardGrid");
@@ -194,43 +201,85 @@ function onThreshold(){
 async function connectBackend(){
   const url = document.getElementById("apiUrl").value.trim().replace(/\/$/, "");
   const pill = document.getElementById("statusPill");
-  if(!url){ liveBase = null; pill.className = "status"; pill.innerHTML = "<span class='dot'></span>Demo mode"; return; }
-  try{
-    const res = await fetch(url + "/models", { signal: AbortSignal.timeout(4000) });
-    if(!res.ok) throw new Error("bad response");
-    const data = await res.json();
-    liveBase = url; liveModels = data.models || [];
-    pill.className = "status live"; pill.innerHTML = "<span class='dot'></span>Live — " + liveModels.length + " models";
-  }catch(e){
-    liveBase = null;
-    pill.className = "status"; pill.innerHTML = "<span class='dot'></span>Backend unreachable — demo mode";
+  const dsNote = document.getElementById("datasetNote");
+  if(!url){
+    liveBase = null; liveMode = false; SAMPLES = DEMO_SAMPLES; selected = null;
+    pill.className = "status"; pill.innerHTML = "<span class='dot'></span>Demo mode";
+    dsNote.textContent = "Dataset: built-in demo (8 illustrative connections). Connect a backend above to pull real, live-sampled traffic instead.";
+    document.getElementById("resultBlock").style.display = "none";
+    renderCards();
+    return;
   }
-  if(selected !== null) selectSample(selected, true);
+  try{
+    const [mRes, dRes] = await Promise.all([
+      fetch(url + "/models", { signal: AbortSignal.timeout(5000) }),
+      fetch(url + "/dataset", { signal: AbortSignal.timeout(5000) }),
+    ]);
+    if(!mRes.ok || !dRes.ok) throw new Error("bad response");
+    const mData = await mRes.json();
+    const dData = await dRes.json();
+    liveBase = url; liveModels = mData.models || [];
+    SAMPLES = (dData.records || []).map((r, i) => ({
+      id: i + 1,
+      name: (r.attack_type === "normal" ? "Normal" : r.attack_type) + " — real sample",
+      label: r.true_label,
+      proto: `${r.protocol_type}/${r.service} ${r.flag}`,
+      raw: r,
+    }));
+    liveMode = true; selected = null;
+    pill.className = "status live"; pill.innerHTML = "<span class='dot'></span>Live — " + liveModels.length + " models";
+    dsNote.textContent = `Dataset: live — ${SAMPLES.length} real sampled connections from the connected backend's test set.`;
+    document.getElementById("resultBlock").style.display = "none";
+    renderCards();
+  }catch(e){
+    liveBase = null; liveMode = false; SAMPLES = DEMO_SAMPLES; selected = null;
+    pill.className = "status"; pill.innerHTML = "<span class='dot'></span>Backend unreachable — demo mode";
+    dsNote.textContent = "Dataset: built-in demo (8 illustrative connections). Backend couldn't be reached — check the URL and that CORS is enabled.";
+    document.getElementById("resultBlock").style.display = "none";
+    renderCards();
+  }
 }
 
-async function selectSample(id, keepScroll){
+function groupedRowsHtml(rows){
+  return [["Our models", "ours"], ["Other baselines", "baseline"]].map(([label, g]) => {
+    const items = rows.filter(r => r.group === g);
+    if(!items.length) return "";
+    return `<div class="group-label">${label}</div>` + items.map(r => `
+      <div class="model-row">
+        <div class="name">${r.name}${r.tag ? `<small>${r.tag}</small>` : ""}</div>
+        <div class="bar-track"><div class="bar-fill ${r.alert?'danger':'safe'}" style="width:${Math.round(r.score*100)}%"></div></div>
+        <div class="score">${r.score.toFixed(2)}</div>
+        <div class="verdict ${r.alert?'alert':'clear'}">${r.alert?'ALERT':'CLEAR'}</div>
+      </div>`).join("");
+  }).join("");
+}
+
+async function selectSample(id){
   selected = id; renderCards();
   const sample = SAMPLES.find(s => s.id === id);
   document.getElementById("resultBlock").style.display = "block";
   document.getElementById("selName").textContent = sample.name;
 
   let rows = [];
-  let note = "Demo mode: scores are illustrative, hand-set to show typical model behaviour on this connection type — connect a deployed backend above for real live inference.";
+  let note = "Demo mode: scores are illustrative, hand-set to show typical model behaviour on this connection type — connect a deployed backend above for real live inference on real traffic.";
 
-  if(liveBase){
+  if(liveBase && sample.raw){
     try{
       const res = await fetch(liveBase + "/predict_all?threshold=" + threshold, {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify(sample.raw || {}), signal: AbortSignal.timeout(5000)
+        body: JSON.stringify(sample.raw), signal: AbortSignal.timeout(5000)
       });
       const data = await res.json();
-      rows = Object.entries(data.predictions).map(([name, p]) => ({name, score:p.risk_score, alert:p.alert}));
-      note = "Live scores from your connected backend's /predict_all endpoint.";
+      rows = Object.entries(data.predictions).map(([name, p]) => ({
+        name, score:p.risk_score, alert:p.alert, group:p.group || "baseline",
+        tag: p.metrics && p.metrics.pr_auc !== undefined ? `PR-AUC ${p.metrics.pr_auc.toFixed(2)}` : "",
+      }));
+      note = `Live scores from your connected backend's /predict_all endpoint on a real ${sample.name.toLowerCase()} connection.`;
     }catch(e){ rows = []; }
   }
 
   if(rows.length === 0){
-    rows = MODEL_META.map(m => ({name:m.name, tag:m.tag, score:sample[m.key], alert: sample[m.key] >= threshold}));
+    rows = MODEL_META.map(m => ({name:m.name, tag:m.tag, group:m.group, score:sample[m.key], alert: sample[m.key] >= threshold}));
   }
 
   const alerts = rows.map(r => r.alert);
@@ -239,13 +288,7 @@ async function selectSample(id, keepScroll){
   badge.className = "agree " + (allAgree ? "yes" : "no");
   badge.textContent = allAgree ? "✓ Models agree" : "⚠ Models disagree";
 
-  document.getElementById("modelRows").innerHTML = rows.map(r => `
-    <div class="model-row">
-      <div class="name">${r.name}${r.tag ? `<small>${r.tag}</small>` : ""}</div>
-      <div class="bar-track"><div class="bar-fill ${r.alert?'danger':'safe'}" style="width:${Math.round(r.score*100)}%"></div></div>
-      <div class="score">${r.score.toFixed(2)}</div>
-      <div class="verdict ${r.alert?'alert':'clear'}">${r.alert?'ALERT':'CLEAR'}</div>
-    </div>`).join("");
+  document.getElementById("modelRows").innerHTML = groupedRowsHtml(rows);
   document.getElementById("modeNote").textContent = note;
 }
 

@@ -24,18 +24,24 @@ Security Analyst → Feedback → Model Retraining
 ## Files
 
 - `train_pipeline.py` — loads NSL-KDD, cleans it, handles class imbalance,
-  trains and compares Decision Tree / Random Forest / Random Forest+SMOTE,
-  evaluates them (confusion matrix, precision, recall, F1, FPR, FNR, PR-AUC),
-  runs the threshold sweep, the System A/B scenario, and the zero-day
-  breakdown. Saves **every** trained model (not just the best) into
-  `artifacts/`, so the API can serve real multi-model comparison.
-- `app.py` — FastAPI service that loads `artifacts/` and scores new
-  connection records, either with the single best model (`/predict`) or
-  every trained model at once (`/predict_all`).
+  trains **our** models (Decision Tree, Random Forest, Random Forest+SMOTE)
+  plus two **baseline** model families Task 5 asks us to evaluate (a linear
+  SVM and KNN, kept as fast approximations in line with the compute
+  constraint), evaluates all five (confusion matrix, precision, recall, F1,
+  FPR, FNR, PR-AUC), runs the threshold sweep, the System A/B scenario, and
+  the zero-day breakdown. Saves **every** trained model into `artifacts/`,
+  plus a small real sample of test-set connections, so the API can serve
+  genuine multi-model comparison on genuine traffic.
+- `app.py` — FastAPI service that loads `artifacts/` and exposes:
+  `/predict` (best model), `/predict_all` (every model, tagged `ours` or
+  `baseline`), `/models` (each model's held-out metrics), and `/dataset`
+  (a real, class-diverse sample of test-set connections).
 - `docs/index.html` — a self-contained, no-build dashboard: pick a sample
-  connection (or wire it to real traffic), see every model's risk score
-  side-by-side, and see at a glance where they agree or disagree. Works
-  standalone in demo mode, or live against a deployed `app.py`.
+  connection, see every model's risk score side-by-side grouped into "our
+  models" vs "other baselines", and see at a glance where they agree or
+  disagree. Works standalone in demo mode (illustrative numbers, clearly
+  labeled), or live against a deployed `app.py` — connecting pulls a real
+  dataset via `/dataset` and scores it via `/predict_all`.
 - `sample_record.json` — example payload for testing the API.
 - `requirements.txt`, `Dockerfile` — local setup and containerized deployment.
 - `render.yaml` — one-file config to deploy the API on Render.
@@ -64,6 +70,7 @@ curl -X POST http://localhost:8000/predict_all \
   -H "Content-Type: application/json" -d @sample_record.json
 
 curl http://localhost:8000/models
+curl http://localhost:8000/dataset   # real sampled test-set connections
 ```
 
 Adjust the threshold per-request (e.g. to favor recall over fewer alerts):

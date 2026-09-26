@@ -54,7 +54,10 @@ for m in ALL_MODELS_META:
         ALL_MODELS[m["slug"]] = joblib.load(path)
 if not ALL_MODELS:
     ALL_MODELS[meta["best_model_name"]] = model
-    ALL_MODELS_META = [{"name": meta["best_model_name"], "slug": meta["best_model_name"]}]
+    ALL_MODELS_META = [{"name": meta["best_model_name"], "slug": meta["best_model_name"], "group": "ours"}]
+
+SAMPLE_DATASET_PATH = ARTIFACT_DIR / "sample_dataset.json"
+SAMPLE_DATASET = json.loads(SAMPLE_DATASET_PATH.read_text()) if SAMPLE_DATASET_PATH.exists() else []
 
 # Comma-separated list of allowed origins, e.g. "https://you.github.io".
 # Defaults to "*" for easy local/demo use — tighten this for production.
@@ -167,6 +170,15 @@ def list_models():
     return {"best_model": meta["best_model_name"], "models": ALL_MODELS_META}
 
 
+@app.get("/dataset")
+def dataset():
+    """A small, class-diverse sample of REAL test-set connections (several
+    normal + several distinct attack types), each in the exact shape
+    /predict and /predict_all expect. Powers the dashboard's live dataset
+    picker instead of hand-set demo numbers."""
+    return {"count": len(SAMPLE_DATASET), "records": SAMPLE_DATASET}
+
+
 @app.post("/predict", response_model=PredictionResponse)
 def predict(record: ConnectionRecord, threshold: Optional[float] = None):
     t = threshold if threshold is not None else DEFAULT_THRESHOLD
@@ -195,6 +207,7 @@ def predict_all(record: ConnectionRecord, threshold: Optional[float] = None):
         predictions[m["name"]] = {
             "risk_score": round(score, 4),
             "alert": score >= t,
+            "group": m.get("group", "baseline"),
             "metrics": {k: m[k] for k in ("precision", "recall", "f1", "pr_auc") if k in m},
         }
     return {"threshold_used": t, "predictions": predictions}

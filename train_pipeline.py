@@ -25,11 +25,14 @@ import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (auc, confusion_matrix, f1_score,
                               precision_recall_curve, precision_score,
                               recall_score)
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import LabelEncoder, RobustScaler
+from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 
 np.random.seed(42)
@@ -55,6 +58,11 @@ COLS = [
 
 TRAIN_URL = "https://raw.githubusercontent.com/jmnwong/NSL-KDD-Dataset/master/KDDTrain%2B.txt"
 TEST_URL = "https://raw.githubusercontent.com/jmnwong/NSL-KDD-Dataset/master/KDDTest%2B.txt"
+
+# Raw (pre-encoding, pre-scaling) feature columns — exactly the shape
+# app.py's ConnectionRecord expects, so real rows sampled from the raw test
+# set can be sent straight to /predict_all with no extra mapping.
+RAW_FEATURE_COLS = [c for c in COLS if c not in ("label", "difficulty")]
 
 
 def load_data():
@@ -213,11 +221,35 @@ def slugify(name: str) -> str:
     return name.lower().replace(" ", "_").replace("(", "").replace(")", "")
 
 
+def _to_native(v):
+    return v.item() if hasattr(v, "item") else v
+
+
+def build_sample_dataset(test_df_raw: pd.DataFrame, per_label: int = 3, max_total: int = 30):
+    """A small, class-diverse sample of REAL, untransformed test-set
+    connections (several normal + several distinct attack types), in the
+    exact raw shape the API expects. This is what powers the dashboard's
+    'live dataset' option once a backend is connected — real traffic, not
+    hand-set demo numbers."""
+    rows = []
+    for label, grp in test_df_raw.groupby("label"):
+        take = grp.sample(min(len(grp), per_label), random_state=42)
+        for _, r in take.iterrows():
+            rec = {c: _to_native(r[c]) for c in RAW_FEATURE_COLS}
+            rec["attack_type"] = label
+            rec["true_label"] = "normal" if label == "normal" else "attack"
+            rows.append(rec)
+        if len(rows) >= max_total:
+            break
+    return rows[:max_total]
+
+
 # ============================================================================
 # MAIN
 # ============================================================================
 def main():
     train_df, test_df = load_data()
+    test_df_raw = test_df.copy()  # untransformed — used later for real sample records
     plot_class_distribution(train_df)
 
     train_df, test_df, meta = preprocess(train_df, test_df)
@@ -244,16 +276,30 @@ def main():
               "(run `pip install imbalanced-learn` to enable it).")
 
     # ---- Model training ----
-    models = {
+    # "Ours" = the models this project selects/recommends. "Baseline" = the
+    # other model families Task 5 asks us to evaluate for comparison, kept
+    # deliberately fast approximations (LinearSVC, not kernel SVC; k=5 NN)
+    # in line with constraint #5 (limited compute for real-time detection).
+    OURS = {
         "Decision Tree": DecisionTreeClassifier(class_weight="balanced", max_depth=10, random_state=42),
         "Random Forest": RandomForestClassifier(
             n_estimators=200, class_weight="balanced", max_depth=15, n_jobs=-1, random_state=42
         ),
     }
+    BASELINES = {
+        "SVM (linear)": CalibratedClassifierCV(
+            LinearSVC(class_weight="balanced", max_iter=2000, random_state=42), cv=3
+        ),
+        "KNN (k=5)": KNeighborsClassifier(n_neighbors=5, n_jobs=-1),
+    }
+    models = {**OURS, **BASELINES}
     if smote_available:
+        OURS["Random Forest (SMOTE)"] = None  # placeholder so the group lookup below finds it
         models["Random Forest (SMOTE)"] = RandomForestClassifier(
             n_estimators=200, max_depth=15, n_jobs=-1, random_state=42
         )
+    model_group = {name: "ours" for name in OURS}
+    model_group.update({name: "baseline" for name in BASELINES})
 
     results = {}
     for name, model in models.items():
@@ -395,6 +441,7 @@ def main():
         {
             "name": name,
             "slug": slug_map[name],
+            "group": model_group.get(name, "baseline"),
             "precision": round(float(eval_results[name]["precision"]), 4),
             "recall": round(float(eval_results[name]["recall"]), 4),
             "f1": round(float(eval_results[name]["f1"]), 4),
@@ -416,6 +463,12 @@ def main():
     }
     with open(ARTIFACT_DIR / "deploy_meta.json", "w") as f:
         json.dump(deploy_meta, f, indent=2)
+
+    # ---- Real sample dataset for the dashboard's live mode ----
+    sample_dataset = build_sample_dataset(test_df_raw)
+    with open(ARTIFACT_DIR / "sample_dataset.json", "w") as f:
+        json.dump(sample_dataset, f, indent=2, default=_to_native)
+    print(f"\nSaved {len(sample_dataset)} real sample connections to sample_dataset.json")
 
     print(f"\nArtifacts saved to {ARTIFACT_DIR.resolve()}/")
     print("Files:", sorted(p.name for p in ARTIFACT_DIR.iterdir()))
