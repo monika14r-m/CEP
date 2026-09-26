@@ -30,6 +30,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+# Needed so joblib can deserialize anomaly-model adapters.
+from model_wrappers import AnomalyProbabilityWrapper  # noqa: F401
+
 ARTIFACT_DIR = Path(__file__).parent / "artifacts"
 
 model = joblib.load(ARTIFACT_DIR / "model.joblib")
@@ -66,7 +69,7 @@ ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 app = FastAPI(
     title="ML-IDS Inference Service",
     description="Serves risk scores for network connection records using the trained IDS model(s).",
-    version="1.1.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -167,7 +170,7 @@ def health():
 def list_models():
     """Every trained model plus its held-out evaluation metrics, so a
     dashboard can show a real comparison rather than one model's opinion."""
-    return {"best_model": meta["best_model_name"], "models": ALL_MODELS_META}
+    return {"best_model": meta["best_model_name"], "models": ALL_MODELS_META, "imbalance_strategies": meta.get("supported_imbalance_strategies", [])}
 
 
 @app.get("/dataset")

@@ -7,3 +7,7 @@ matplotlib>=3.7
 fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.0
+
+xgboost>=2.0,<4
+lightgbm>=4.0,<5
+catboost>=1.2,<2

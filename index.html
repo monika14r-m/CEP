@@ -8,7 +8,7 @@
 :root{--bg:#090a12;--panel:#11131f;--panel2:#151827;--line:#25283a;--text:#f2f3fa;--muted:#8f94ab;--purple:#8b7cff;--purple2:#a99cff;--cyan:#32d4c8;--red:#ff5c72;--amber:#f4c95d;--green:#3ee0a1;--shadow:0 20px 60px rgba(0,0,0,.28)}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0%,rgba(91,76,255,.2),transparent 34%),radial-gradient(circle at 100% 100%,rgba(91,44,140,.18),transparent 35%),var(--bg);color:var(--text);font:14px Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}button,input,select{font:inherit}.wrap{max-width:1220px;margin:auto;padding:30px 24px 70px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:28px}.eyebrow{color:var(--purple2);font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.title{font-size:31px;font-weight:850;margin:7px 0}.sub{color:var(--muted);max-width:700px;line-height:1.55}.status{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:rgba(255,255,255,.035);padding:9px 13px;border-radius:999px;color:var(--muted);white-space:nowrap}.dot{width:8px;height:8px;border-radius:50%;background:#777}.live .dot{background:var(--green);box-shadow:0 0 12px var(--green)}
 .pipeline{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:18px}.stage{border:1px solid var(--line);background:rgba(255,255,255,.025);border-radius:12px;padding:12px 10px}.stage span{display:block;color:#6f748c;font-size:10px;font-weight:800}.stage b{display:block;margin-top:4px;font-size:12px}.stage.active{border-color:rgba(139,124,255,.55);background:rgba(139,124,255,.08)}
-.panel{background:rgba(17,19,31,.88);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:20px;margin-bottom:16px}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;margin-bottom:17px}.panel h2{font-size:16px;margin:0}.hint{color:var(--muted);font-size:12px;margin-top:5px}.controls{display:grid;grid-template-columns:1.2fr 1.2fr 1fr auto;gap:12px;align-items:end}.field label{display:block;color:var(--muted);font-size:11px;margin-bottom:6px}.field input,.field select{width:100%;height:40px;background:#0d0f19;border:1px solid var(--line);border-radius:10px;color:var(--text);padding:0 12px}.field input:focus,.field select:focus{outline:1px solid var(--purple)}.btn{height:40px;border:0;border-radius:10px;padding:0 17px;background:linear-gradient(135deg,var(--purple),#6f61ed);color:white;font-weight:800;cursor:pointer}.btn.secondary{background:transparent;border:1px solid var(--line)}
+.panel{background:rgba(17,19,31,.88);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:20px;margin-bottom:16px}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;margin-bottom:17px}.panel h2{font-size:16px;margin:0}.hint{color:var(--muted);font-size:12px;margin-top:5px}.controls{display:grid;grid-template-columns:1.2fr 1.1fr .9fr 1fr auto;gap:12px;align-items:end}.field label{display:block;color:var(--muted);font-size:11px;margin-bottom:6px}.field input,.field select{width:100%;height:40px;background:#0d0f19;border:1px solid var(--line);border-radius:10px;color:var(--text);padding:0 12px}.field input:focus,.field select:focus{outline:1px solid var(--purple)}.btn{height:40px;border:0;border-radius:10px;padding:0 17px;background:linear-gradient(135deg,var(--purple),#6f61ed);color:white;font-weight:800;cursor:pointer}.btn.secondary{background:transparent;border:1px solid var(--line)}
 .dataset-grid{display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr;gap:10px}.stat{background:#0d0f19;border:1px solid var(--line);border-radius:12px;padding:13px}.stat span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}.stat strong{display:block;font-size:20px;margin-top:5px}.stat small{color:#6f748c}.bar{height:7px;border-radius:99px;background:#24283a;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--purple),var(--cyan));border-radius:99px}
 .compare{display:grid;grid-template-columns:1fr 1fr;gap:14px}.model-card{border:1px solid var(--line);border-radius:15px;background:#0d0f19;padding:17px}.model-card.ours{border-color:rgba(139,124,255,.45)}.model-top{display:flex;justify-content:space-between;gap:10px}.tag{font-size:10px;padding:4px 8px;border-radius:999px;background:#202337;color:var(--muted)}.tag.our{color:#c7c1ff;background:rgba(139,124,255,.12)}.model-name{font-size:15px;font-weight:800}.model-note{font-size:11px;color:var(--muted);margin-top:3px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:15px}.metric{background:#151827;border-radius:9px;padding:9px}.metric span{display:block;color:var(--muted);font-size:9px}.metric b{display:block;margin-top:4px;font-size:14px}.metric.alert b{color:var(--red)}.metric.good b{color:var(--green)}
 .table{width:100%;border-collapse:collapse}.table th,.table td{text-align:left;border-bottom:1px solid var(--line);padding:11px 9px;font-size:12px}.table th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}.table tr:last-child td{border-bottom:0}.ours-row{background:rgba(139,124,255,.045)}.pill{font-size:9px;font-weight:800;padding:4px 7px;border-radius:999px}.pill.ours{color:#c7c1ff;background:rgba(139,124,255,.13)}.pill.base{color:#aeb4c9;background:#1c1f2e}
@@ -35,6 +35,7 @@ pre{background:#090b12;border:1px solid var(--line);border-radius:10px;padding:1
       <div class="field"><label>Backend API</label><input id="api" placeholder="https://your-ml-ids-api.onrender.com"></div>
       <div class="field"><label>Dataset</label><select id="dataset" onchange="changeDataset()"><option value="nsl-kdd">NSL-KDD · Test Set</option><option value="nsl-kdd-attack">NSL-KDD · Attack-focused</option><option value="nsl-kdd-normal">NSL-KDD · Normal-focused</option></select></div>
       <div class="field"><label>Evaluation split</label><select id="split"><option>Held-out test set</option><option>Sampled test connections</option></select></div>
+      <div class="field"><label>Imbalance strategy</label><select id="strategy" onchange="refreshModelViews()"><option value="all">All strategies</option><option value="class_weight">Class-weighted</option><option value="SMOTE">SMOTE</option><option value="sample_weight">Sample-weighted</option><option value="normal-only">Normal-only / anomaly</option><option value="none">No balancing</option></select></div>
       <button class="btn" onclick="runComparison()">Run comparison</button>
     </div>
   </section>
@@ -51,7 +52,7 @@ pre{background:#090b12;border:1px solid var(--line);border-radius:10px;padding:1
   </section>
 
   <section class="panel">
-    <div class="panel-head"><div><h2>2. Existing model vs our model</h2><div class="hint">Pick the two models you want to put side-by-side. Metrics are from the held-out evaluation generated by the training pipeline.</div></div></div>
+    <div class="panel-head"><div><h2>2. Existing model vs our model</h2><div class="hint">Pick a conventional baseline and one of our candidate models. The full suite below also includes anomaly detectors and multiple imbalance strategies.</div></div></div>
     <div class="compare">
       <div class="model-card"><div class="model-top"><div><div class="model-name">Existing / baseline</div><div class="model-note">A conventional model used as the reference point.</div></div><select id="baselineSelect" onchange="renderModelCards()" style="background:#0d0f19;color:white;border:1px solid #25283a;border-radius:8px;padding:7px"></select></div><div id="baselineCard"></div></div>
       <div class="model-card ours"><div class="model-top"><div><div class="model-name">Our model</div><div class="model-note">Models developed in this project with imbalance-aware training.</div></div><select id="oursSelect" onchange="renderModelCards()" style="background:#0d0f19;color:white;border:1px solid #25283a;border-radius:8px;padding:7px"></select></div><div id="oursCard"></div></div>
@@ -60,7 +61,7 @@ pre{background:#090b12;border:1px solid var(--line);border-radius:10px;padding:1
 
   <section class="panel">
     <div class="panel-head"><div><h2>Model evaluation matrix</h2><div class="hint">Use the same evaluation criteria required by the engineering problem: precision, recall, F1, FPR, FNR and PR-AUC.</div></div></div>
-    <div style="overflow:auto"><table class="table"><thead><tr><th>Model</th><th>Type</th><th>Precision</th><th>Recall</th><th>F1</th><th>FPR</th><th>FNR</th><th>PR-AUC</th></tr></thead><tbody id="matrix"></tbody></table></div>
+    <div style="overflow:auto"><table class="table"><thead><tr><th>Model</th><th>Type</th><th>Imbalance</th><th>Precision</th><th>Recall</th><th>F1</th><th>FPR</th><th>FNR</th><th>PR-AUC</th></tr></thead><tbody id="matrix"></tbody></table></div>
   </section>
 
   <section class="panel">
@@ -91,57 +92,135 @@ uvicorn app:app --host 0.0.0.0 --port 8000
  docker build -t ml-ids .
  docker run -p 8000:8000 ml-ids</pre>
   </section>
-  <div class="footer">ML-IDS · NSL-KDD training pipeline · Ours: Decision Tree / Random Forest / Random Forest + SMOTE · Baselines: Linear SVM / KNN</div>
+  <div class="footer">ML-IDS · NSL-KDD · Full model suite: classical ML, tree ensembles, boosting, neural network and anomaly detection · Demo values are illustrative until the backend is connected.</div>
 </div>
+
 <script>
 const demoModels=[
-{name:'SVM (linear)',group:'baseline',precision:.91,recall:.94,f1:.925,fpr:.025,fnr:.06,pr_auc:.95},
-{name:'KNN (k=5)',group:'baseline',precision:.88,recall:.92,f1:.90,fpr:.035,fnr:.08,pr_auc:.93},
-{name:'Decision Tree',group:'ours',precision:.94,recall:.96,f1:.95,fpr:.018,fnr:.04,pr_auc:.97},
-{name:'Random Forest',group:'ours',precision:.96,recall:.97,f1:.965,fpr:.012,fnr:.03,pr_auc:.985},
-{name:'Random Forest (SMOTE)',group:'ours',precision:.93,recall:.985,f1:.956,fpr:.022,fnr:.015,pr_auc:.982}
+{name:'Logistic Regression',group:'baseline',strategy:'class_weight',precision:.89,recall:.93,f1:.91,fpr:.031,fnr:.07,pr_auc:.94},
+{name:'Gaussian Naive Bayes',group:'baseline',strategy:'none',precision:.78,recall:.95,f1:.86,fpr:.085,fnr:.05,pr_auc:.91},
+{name:'KNN (k=5)',group:'baseline',strategy:'none',precision:.88,recall:.92,f1:.90,fpr:.035,fnr:.08,pr_auc:.93},
+{name:'SVM (linear)',group:'baseline',strategy:'class_weight',precision:.91,recall:.94,f1:.925,fpr:.025,fnr:.06,pr_auc:.95},
+{name:'Decision Tree',group:'ours',strategy:'class_weight',precision:.94,recall:.96,f1:.95,fpr:.018,fnr:.04,pr_auc:.97},
+{name:'Random Forest',group:'ours',strategy:'class_weight',precision:.96,recall:.97,f1:.965,fpr:.012,fnr:.03,pr_auc:.985},
+{name:'Extra Trees',group:'ours',strategy:'class_weight',precision:.955,recall:.972,f1:.963,fpr:.014,fnr:.028,pr_auc:.984},
+{name:'Gradient Boosting',group:'ours',strategy:'sample_weight',precision:.95,recall:.965,f1:.957,fpr:.016,fnr:.035,pr_auc:.98},
+{name:'AdaBoost',group:'ours',strategy:'sample_weight',precision:.93,recall:.955,f1:.942,fpr:.021,fnr:.045,pr_auc:.97},
+{name:'HistGradientBoosting',group:'ours',strategy:'sample_weight',precision:.956,recall:.97,f1:.963, fpr:.014,fnr:.03,pr_auc:.984},
+{name:'XGBoost',group:'ours',strategy:'class_weight',precision:.965,recall:.975,f1:.97,fpr:.011,fnr:.025,pr_auc:.99},
+{name:'LightGBM',group:'ours',strategy:'class_weight',precision:.962,recall:.973,f1:.967,fpr:.012,fnr:.027,pr_auc:.989},
+{name:'CatBoost',group:'ours',strategy:'class_weight',precision:.96,recall:.971,f1:.965,fpr:.013,fnr:.029,pr_auc:.988},
+{name:'MLP Neural Network',group:'ours',strategy:'SMOTE',precision:.94,recall:.97,f1:.955,fpr:.019,fnr:.03,pr_auc:.978},
+{name:'Random Forest (SMOTE)',group:'ours',strategy:'SMOTE',precision:.93,recall:.985,f1:.956,fpr:.022,fnr:.015,pr_auc:.982},
+{name:'Extra Trees (SMOTE)',group:'ours',strategy:'SMOTE',precision:.935,recall:.98,f1:.956,fpr:.021,fnr:.02,pr_auc:.981},
+{name:'Isolation Forest',group:'anomaly',strategy:'normal-only',precision:.72,recall:.88,f1:.79,fpr:.12,fnr:.12,pr_auc:.84},
+{name:'One-Class SVM',group:'anomaly',strategy:'normal-only',precision:.69,recall:.84,f1:.76,fpr:.14,fnr:.16,pr_auc:.81},
+{name:'Local Outlier Factor',group:'anomaly',strategy:'normal-only',precision:.66,recall:.80,f1:.72,fpr:.16,fnr:.20,pr_auc:.78},
+{name:'Autoencoder',group:'anomaly',strategy:'normal-only',precision:.74,recall:.86,f1:.80,fpr:.11,fnr:.14,pr_auc:.85}
 ];
 const demoSamples=[
-{name:'Normal — web browsing',proto:'tcp / http / SF',label:'normal',scores:[.04,.03,.02,.01,.03]},
-{name:'Normal — file transfer',proto:'tcp / ftp_data / SF',label:'normal',scores:[.07,.05,.06,.04,.05]},
-{name:'neptune — SYN flood',proto:'tcp / private / S0',label:'attack',scores:[.94,.91,.97,.99,.98]},
-{name:'smurf — ICMP flood',proto:'icmp / ecr_i / SF',label:'attack',scores:[.89,.93,.96,.98,.97]},
-{name:'satan — port probe',proto:'tcp / http_443 / REJ',label:'attack',scores:[.43,.55,.72,.81,.86]},
-{name:'portsweep — port scan',proto:'tcp / private / RSTR',label:'attack',scores:[.39,.62,.70,.78,.82]},
-{name:'back — buffer overflow',proto:'tcp / http / S0',label:'attack',scores:[.29,.48,.66,.73,.77]},
-{name:'ipsweep — host scan',proto:'icmp / eco_i / SF',label:'attack',scores:[.34,.51,.68,.75,.79]}
+{name:'Normal — web browsing',proto:'tcp / http / SF',label:'normal'},
+{name:'Normal — file transfer',proto:'tcp / ftp_data / SF',label:'normal'},
+{name:'neptune — SYN flood',proto:'tcp / private / S0',label:'attack'},
+{name:'smurf — ICMP flood',proto:'icmp / ecr_i / SF',label:'attack'},
+{name:'satan — port probe',proto:'tcp / http_443 / REJ',label:'attack'},
+{name:'portsweep — port scan',proto:'tcp / private / RSTR',label:'attack'},
+{name:'back — buffer overflow',proto:'tcp / http / S0',label:'attack'},
+{name:'ipsweep — host scan',proto:'icmp / eco_i / SF',label:'attack'}
 ];
-let models=[...demoModels], samples=[...demoSamples], selected=0, live=false, threshold=.5;
+let models=[...demoModels], samples=[...demoSamples], liveAllSamples=[...demoSamples], selected=0, live=false, threshold=.5;
 const $=id=>document.getElementById(id);
-function pct(v){return (v*100).toFixed(1)+'%'}
-function fmt(v){return v==null?'—':v.toFixed(3)}
-function setupSelectors(){
- const base=models.filter(m=>m.group==='baseline'), ours=models.filter(m=>m.group==='ours');
- $('baselineSelect').innerHTML=base.map(m=>`<option>${m.name}</option>`).join('');
- $('oursSelect').innerHTML=ours.map(m=>`<option>${m.name}</option>`).join('');
- $('oursSelect').value=ours.find(m=>m.name==='Random Forest')?.name||ours[0]?.name;
+function pct(v){return v==null?'—':(v*100).toFixed(1)+'%'}
+function fmt(v){return v==null?'—':Number(v).toFixed(3)}
+function strategyLabel(s){return ({class_weight:'Class-weighted',SMOTE:'SMOTE',sample_weight:'Sample-weighted','normal-only':'Normal-only',none:'None'})[s]||s||'—'}
+function visibleModels(){
+ const s=$('strategy')?.value||'all';
+ return s==='all'?models:models.filter(m=>(m.strategy||'none')===s);
 }
-function cardHtml(m){return `<div class="metrics"><div class="metric"><span>Precision</span><b>${pct(m.precision)}</b></div><div class="metric"><span>Recall</span><b>${pct(m.recall)}</b></div><div class="metric"><span>F1</span><b>${pct(m.f1)}</b></div><div class="metric good"><span>PR-AUC</span><b>${pct(m.pr_auc)}</b></div></div><div style="display:flex;gap:7px;margin-top:9px"><span class="metric" style="flex:1"><span>False positive rate</span><b>${pct(m.fpr)}</b></span><span class="metric alert" style="flex:1"><span>False negative rate</span><b>${pct(m.fnr)}</b></span></div>`}
-function renderModelCards(){const b=models.find(m=>m.name===$('baselineSelect').value)||models.find(m=>m.group==='baseline');const o=models.find(m=>m.name===$('oursSelect').value)||models.find(m=>m.group==='ours');$('baselineCard').innerHTML=cardHtml(b);$('oursCard').innerHTML=cardHtml(o);}
+function setupSelectors(){
+ const visible=visibleModels();
+ const base=visible.filter(m=>m.group==='baseline'), ours=visible.filter(m=>m.group==='ours');
+ $('baselineSelect').innerHTML=(base.length?base:models.filter(m=>m.group==='baseline')).map(m=>`<option>${m.name}</option>`).join('');
+ $('oursSelect').innerHTML=(ours.length?ours:models.filter(m=>m.group==='ours')).map(m=>`<option>${m.name}</option>`).join('');
+ const preferred=['Random Forest','XGBoost','Random Forest (SMOTE)','Extra Trees','Decision Tree'];
+ const pick=preferred.find(n=>[...$('oursSelect').options].some(o=>o.value===n));
+ if(pick)$('oursSelect').value=pick;
+}
+function cardHtml(m){
+ if(!m)return '<div class="empty">No model in this strategy.</div>';
+ return `<div style="display:flex;gap:7px;margin-top:12px;flex-wrap:wrap"><span class="tag ${m.group==='ours'?'our':''}">${m.group==='anomaly'?'ANOMALY':m.group==='ours'?'OUR MODEL':'BASELINE'}</span><span class="tag">${strategyLabel(m.strategy)}</span></div>
+ <div class="metrics"><div class="metric"><span>Precision</span><b>${pct(m.precision)}</b></div><div class="metric"><span>Recall</span><b>${pct(m.recall)}</b></div><div class="metric"><span>F1</span><b>${pct(m.f1)}</b></div><div class="metric good"><span>PR-AUC</span><b>${pct(m.pr_auc)}</b></div></div>
+ <div style="display:flex;gap:7px;margin-top:9px"><span class="metric" style="flex:1"><span>False positive rate</span><b>${pct(m.fpr)}</b></span><span class="metric alert" style="flex:1"><span>False negative rate</span><b>${pct(m.fnr)}</b></span></div>`;
+}
+function renderModelCards(){
+ const b=models.find(m=>m.name===$('baselineSelect').value);
+ const o=models.find(m=>m.name===$('oursSelect').value);
+ $('baselineCard').innerHTML=cardHtml(b);$('oursCard').innerHTML=cardHtml(o);
+}
 function renderMatrix(){
- $('matrix').innerHTML=models.map(m=>`<tr class="${m.group==='ours'?'ours-row':''}"><td><b>${m.name}</b></td><td><span class="pill ${m.group==='ours'?'ours':'base'}">${m.group==='ours'?'OUR MODEL':'BASELINE'}</span></td><td>${pct(m.precision)}</td><td>${pct(m.recall)}</td><td>${pct(m.f1)}</td><td>${pct(m.fpr)}</td><td>${pct(m.fnr)}</td><td>${pct(m.pr_auc)}</td></tr>`).join('');
+ const rows=visibleModels();
+ $('matrix').innerHTML=rows.map(m=>`<tr class="${m.group==='ours'?'ours-row':''}"><td><b>${m.name}</b></td><td><span class="pill ${m.group==='ours'?'ours':'base'}">${m.group==='anomaly'?'ANOMALY':m.group==='ours'?'OUR MODEL':'BASELINE'}</span></td><td>${strategyLabel(m.strategy)}</td><td>${pct(m.precision)}</td><td>${pct(m.recall)}</td><td>${pct(m.f1)}</td><td>${pct(m.fpr)}</td><td>${pct(m.fnr)}</td><td>${pct(m.pr_auc)}</td></tr>`).join('');
 }
 function renderSamples(){
  $('samples').innerHTML=samples.map((s,i)=>`<div class="sample ${selected===i?'selected':''}" onclick="selectSample(${i})"><b>${s.name}</b><small>${s.proto}</small><span class="gt ${s.label}">${s.label==='attack'?'GROUND TRUTH: ATTACK':'GROUND TRUTH: NORMAL'}</span></div>`).join('');
 }
+function demoScore(m,s){
+ const attack=s.label==='attack';
+ const base=attack?.82:.08;
+ const boost={ 'Logistic Regression':.02,'Gaussian Naive Bayes':-.05,'KNN (k=5)':.01,'SVM (linear)':.03,'Decision Tree':.05,'Random Forest':.08,'Extra Trees':.07,'Gradient Boosting':.06,'AdaBoost':.04,'HistGradientBoosting':.07,'XGBoost':.09,'LightGBM':.085,'CatBoost':.08,'MLP Neural Network':.06,'Random Forest (SMOTE)':.10,'Extra Trees (SMOTE)':.095,'Isolation Forest':-.04,'One-Class SVM':-.07,'Local Outlier Factor':-.10,'Autoencoder':-.02};
+ const variation=((selected*17 + m.name.length*7)%11-5)/100;
+ return Math.max(.01,Math.min(.99,base+(boost[m.name]||0)+variation));
+}
 function scoreSelected(){
  const s=samples[selected]; if(!s)return;
- $('scores').innerHTML=models.map((m,i)=>{const score=s.scores[i]??.5, alert=score>=threshold;return `<div class="score-row"><div class="score-name">${m.name}<small>${m.group==='ours'?'our model':'existing baseline'}</small></div><div class="track"><div class="fill ${alert?'alert':'clear'}" style="width:${score*100}%"></div></div><div class="num">${score.toFixed(3)}</div><div class="decision ${alert?'a':'c'}">${alert?'ALERT':'CLEAR'}</div></div>`}).join('');
+ const rows=visibleModels();
+ $('scores').innerHTML=rows.map(m=>{const score=live?(s.liveScores?.[m.name]??.5):demoScore(m,s), alert=score>=threshold;return `<div class="score-row"><div class="score-name">${m.name}<small>${m.group==='ours'?'our model':m.group==='anomaly'?'anomaly detector':'existing baseline'}</small></div><div class="track"><div class="fill ${alert?'alert':'clear'}" style="width:${score*100}%"></div></div><div class="num">${score.toFixed(3)}</div><div class="decision ${alert?'a':'c'}">${alert?'ALERT':'CLEAR'}</div></div>`}).join('');
 }
-function selectSample(i){selected=i;renderSamples();scoreSelected()}
-function thresholdChanged(){threshold=+$('threshold').value;$('thresholdVal').textContent=threshold.toFixed(2);scoreSelected()}
-function updateProfile(){const attacks=samples.filter(s=>s.label==='attack').length, normals=samples.length-attacks;$('dsCount').textContent=samples.length;$('normalCount').textContent=normals;$('attackCount').textContent=attacks;$('attackBar').style.width=(attacks/samples.length*100)+'%'}
-function changeDataset(){const v=$('dataset').value;if(v==='nsl-kdd-attack'){samples=demoSamples.filter(s=>s.label==='attack')}else if(v==='nsl-kdd-normal'){samples=demoSamples.filter(s=>s.label==='normal')}else samples=[...demoSamples];selected=0;updateProfile();renderSamples();scoreSelected();$('datasetHint').textContent=v==='nsl-kdd'?'NSL-KDD is the dataset currently wired into the training pipeline.':'This is a filtered evaluation view derived from the NSL-KDD test sample served by the backend.'}
-async function connect(){const url=$('api').value.trim().replace(/\/$/,'');if(!url){live=false;setStatus('Demo mode',false);return}try{const [mr,dr]=await Promise.all([fetch(url+'/models'),fetch(url+'/dataset')]);if(!mr.ok||!dr.ok)throw Error('backend');const md=await mr.json(),dd=await dr.json();models=(md.models||[]).map(m=>({...m}));samples=(dd.records||[]).map(r=>({name:`${r.attack_type} — real sample`,proto:`${r.protocol_type} / ${r.service} / ${r.flag}`,label:r.true_label,raw:r}));live=true;window.liveBase=url;setupSelectors();renderModelCards();renderMatrix();updateProfile();renderSamples();setStatus(`Live · ${models.length} models`,true);$('healthText').textContent='Backend reachable';$('healthText').className='ok';$('apiText').textContent=url}catch(e){live=false;setStatus('Backend unreachable · demo',false);}}
-function setStatus(t,on){$('status').className='status '+(on?'live':'');$('status').innerHTML=`<i class="dot"></i><span>${t}</span>`}
-async function runComparison(){if(live&&window.liveBase){try{await connect()}catch(e){}}renderModelCards();renderMatrix();scoreSelected()}
-async function liveScore(){if(!live||!window.liveBase)return;const s=samples[selected];if(!s?.raw)return;try{const r=await fetch(window.liveBase+'/predict_all?threshold='+threshold,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(s.raw)});const d=await r.json();const rows=Object.entries(d.predictions||{});$('scores').innerHTML=rows.map(([name,p])=>`<div class="score-row"><div class="score-name">${name}<small>${p.group==='ours'?'our model':'existing baseline'}</small></div><div class="track"><div class="fill ${p.alert?'alert':'clear'}" style="width:${p.risk_score*100}%"></div></div><div class="num">${p.risk_score.toFixed(3)}</div><div class="decision ${p.alert?'a':'c'}">${p.alert?'ALERT':'CLEAR'}</div></div>`).join('')}catch(e){scoreSelected()}}
-const oldSelectSample=selectSample;selectSample=async i=>{oldSelectSample(i);await liveScore()};
+function selectSample(i){selected=i;renderSamples();scoreSelected();if(live)liveScore()}
+function thresholdChanged(){threshold=+$('threshold').value;$('thresholdVal').textContent=threshold.toFixed(2);if(live)liveScore();else scoreSelected()}
+function updateProfile(){const attacks=samples.filter(s=>s.label==='attack').length, normals=samples.length-attacks;$('dsCount').textContent=samples.length;$('normalCount').textContent=normals;$('attackCount').textContent=attacks;$('attackBar').style.width=(samples.length?(attacks/samples.length*100):0)+'%'}
+function changeDataset(){
+ const v=$('dataset').value;
+ if(live){
+   const all=liveAllSamples;
+   if(v==='nsl-kdd-attack')samples=all.filter(s=>s.label==='attack');
+   else if(v==='nsl-kdd-normal')samples=all.filter(s=>s.label==='normal');
+   else samples=[...all];
+ } else {
+   if(v==='nsl-kdd-attack')samples=demoSamples.filter(s=>s.label==='attack');
+   else if(v==='nsl-kdd-normal')samples=demoSamples.filter(s=>s.label==='normal');
+   else samples=[...demoSamples];
+ }
+ selected=0;updateProfile();renderSamples();scoreSelected();
+ $('datasetHint').textContent=v==='nsl-kdd'?'NSL-KDD is the dataset currently wired into the training pipeline.':'Filtered evaluation view derived from the NSL-KDD test sample served by the backend.';
+}
+function refreshModelViews(){setupSelectors();renderModelCards();renderMatrix();scoreSelected()}
+async function connect(){
+ const url=$('api').value.trim().replace(/\/$/,'');
+ if(!url){live=false;setStatus('Demo mode',false);return}
+ try{
+   const [mr,dr,hr]=await Promise.all([fetch(url+'/models'),fetch(url+'/dataset'),fetch(url+'/health')]);
+   if(!mr.ok||!dr.ok||!hr.ok)throw Error('backend');
+   const md=await mr.json(),dd=await dr.json();
+   models=(md.models||[]).map(m=>({...m}));
+   liveAllSamples=(dd.records||[]).map(r=>({name:`${r.attack_type} — real sample`,proto:`${r.protocol_type} / ${r.service} / ${r.flag}`,label:r.true_label,raw:r}));
+   samples=[...liveAllSamples];
+   live=true;window.liveBase=url;setupSelectors();renderModelCards();renderMatrix();updateProfile();renderSamples();setStatus(`Live · ${models.length} models`,true);
+   $('healthText').textContent='Backend reachable';$('healthText').className='ok';$('apiText').textContent=url;
+ }catch(e){live=false;setStatus('Backend unreachable · demo',false);$('healthText').textContent='Backend unreachable';$('healthText').className='warn'}
+}
+async function runComparison(){if(live&&window.liveBase)await connect();renderModelCards();renderMatrix();scoreSelected()}
+async function liveScore(){
+ if(!live||!window.liveBase)return;
+ const s=samples[selected];if(!s?.raw)return;
+ try{
+   const r=await fetch(window.liveBase+'/predict_all?threshold='+threshold,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(s.raw)});
+   if(!r.ok)throw Error('score');
+   const d=await r.json();
+   s.liveScores=Object.fromEntries(Object.entries(d.predictions||{}).map(([n,p])=>[n,p.risk_score]));
+   scoreSelected();
+ }catch(e){scoreSelected()}
+}
 setupSelectors();renderModelCards();renderMatrix();updateProfile();renderSamples();scoreSelected();
 </script>
 </body></html>

@@ -1,24 +1,26 @@
+
 """
-End-to-end training pipeline for a Machine Learning-based Intrusion Detection
-System, built on NSL-KDD.
+ML-IDS full model-suite training pipeline.
 
-Combines: data loading -> EDA -> preprocessing -> imbalance handling
-(class-weighting + SMOTE comparison) -> model training (Decision Tree,
-Random Forest, Random Forest+SMOTE) -> evaluation -> threshold analysis ->
-engineering decision scenario -> zero-day/unseen-attack analysis -> artifact
-export for deployment.
+Dataset: NSL-KDD (binary normal vs attack)
+Supervised suite:
+  Logistic Regression, Gaussian Naive Bayes, KNN, Decision Tree,
+  Linear SVM, Random Forest, Extra Trees, Gradient Boosting,
+  AdaBoost, HistGradientBoosting, XGBoost, LightGBM, CatBoost, MLP.
+Anomaly suite:
+  Isolation Forest, One-Class SVM, Local Outlier Factor.
 
-Run:
-    pip install -r requirements.txt
-    python train_pipeline.py
+Imbalance handling is represented explicitly in the model metadata:
+  class-weighted models, SMOTE variants, sample-weighted boosting, and
+  normal-only anomaly detectors.
 
-Produces an `artifacts/` folder consumed by `app.py` for serving. Every
-trained model is saved individually (model_<slug>.joblib) alongside the
-overall best one (model.joblib), so the API can expose real side-by-side
-model comparison rather than only the single best model's opinion.
+The pipeline writes every successful model to artifacts/ and is consumed by
+app.py. External boosting libraries are imported defensively so the pipeline
+still starts if one is unavailable.
 """
-
 import json
+import os
+import re
 from pathlib import Path
 
 import joblib
@@ -26,216 +28,148 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import (auc, confusion_matrix, f1_score,
-                              precision_recall_curve, precision_score,
-                              recall_score)
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import (
+    AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier,
+    HistGradientBoostingClassifier, IsolationForest, RandomForestClassifier,
+)
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    auc, confusion_matrix, f1_score, precision_recall_curve, precision_score,
+    recall_score,
+)
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier, LocalOutlierFactor
+from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.preprocessing import LabelEncoder, RobustScaler
-from sklearn.svm import LinearSVC
+from sklearn.svm import LinearSVC, OneClassSVM
 from sklearn.tree import DecisionTreeClassifier
+
+from model_wrappers import AnomalyProbabilityWrapper
 
 np.random.seed(42)
 ARTIFACT_DIR = Path(__file__).parent / "artifacts"
 ARTIFACT_DIR.mkdir(exist_ok=True)
 
-# ============================================================================
-# 1. LOAD DATA
-# ============================================================================
 COLS = [
     "duration", "protocol_type", "service", "flag", "src_bytes", "dst_bytes", "land",
-    "wrong_fragment", "urgent",
-    "hot", "num_failed_logins", "logged_in", "num_compromised",
-    "root_shell", "su_attempted", "num_root", "num_file_creations", "num_shells",
-    "num_access_files", "num_outbound_cmds", "is_host_login", "is_guest_login",
-    "count", "srv_count", "serror_rate", "srv_serror_rate", "rerror_rate", "srv_rerror_rate",
-    "same_srv_rate", "diff_srv_rate", "srv_diff_host_rate",
-    "dst_host_count", "dst_host_srv_count", "dst_host_same_srv_rate", "dst_host_diff_srv_rate",
-    "dst_host_same_src_port_rate", "dst_host_srv_diff_host_rate", "dst_host_serror_rate",
-    "dst_host_srv_serror_rate", "dst_host_rerror_rate", "dst_host_srv_rerror_rate",
-    "label", "difficulty",
+    "wrong_fragment", "urgent", "hot", "num_failed_logins", "logged_in",
+    "num_compromised", "root_shell", "su_attempted", "num_root",
+    "num_file_creations", "num_shells", "num_access_files", "num_outbound_cmds",
+    "is_host_login", "is_guest_login", "count", "srv_count", "serror_rate",
+    "srv_serror_rate", "rerror_rate", "srv_rerror_rate", "same_srv_rate",
+    "diff_srv_rate", "srv_diff_host_rate", "dst_host_count", "dst_host_srv_count",
+    "dst_host_same_srv_rate", "dst_host_diff_srv_rate",
+    "dst_host_same_src_port_rate", "dst_host_srv_diff_host_rate",
+    "dst_host_serror_rate", "dst_host_srv_serror_rate", "dst_host_rerror_rate",
+    "dst_host_srv_rerror_rate", "label", "difficulty",
 ]
-
 TRAIN_URL = "https://raw.githubusercontent.com/jmnwong/NSL-KDD-Dataset/master/KDDTrain%2B.txt"
 TEST_URL = "https://raw.githubusercontent.com/jmnwong/NSL-KDD-Dataset/master/KDDTest%2B.txt"
-
-# Raw (pre-encoding, pre-scaling) feature columns — exactly the shape
-# app.py's ConnectionRecord expects, so real rows sampled from the raw test
-# set can be sent straight to /predict_all with no extra mapping.
 RAW_FEATURE_COLS = [c for c in COLS if c not in ("label", "difficulty")]
 
 
 def load_data():
     train_df = pd.read_csv(TRAIN_URL, names=COLS)
     test_df = pd.read_csv(TEST_URL, names=COLS)
-
-    assert train_df.shape[1] == len(COLS), "Column count mismatch — check the source file"
-    assert test_df.shape[1] == len(COLS), "Column count mismatch — check the source file"
-
-    print("Train shape:", train_df.shape, " Test shape:", test_df.shape)
-    print("Missing values (train):", train_df.isna().sum().sum())
-    print("Missing values (test): ", test_df.isna().sum().sum())
-
-    train_types = set(train_df["label"].unique())
-    test_types = set(test_df["label"].unique())
-    unseen = test_types - train_types
-    print(f"\nAttack types in test but unseen during training ({len(unseen)}):")
-    print(sorted(unseen))
-    print(f"\nOverall attack rate — train: {(train_df['label'] != 'normal').mean():.3f}"
-          f"   test: {(test_df['label'] != 'normal').mean():.3f}")
+    if train_df.shape[1] != len(COLS) or test_df.shape[1] != len(COLS):
+        raise RuntimeError("NSL-KDD column count mismatch")
     return train_df, test_df
 
 
-# ============================================================================
-# 2. EDA
-# ============================================================================
-def plot_class_distribution(train_df: pd.DataFrame):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-
-    binary_counts = (train_df["label"] != "normal").map({True: "Attack", False: "Normal"}).value_counts()
-    axes[0].bar(binary_counts.index, binary_counts.values, color=["#4c72b0", "#c44e52"])
-    axes[0].set_title("Normal vs Attack — Training Set")
-    axes[0].set_ylabel("Number of connections")
-    for i, v in enumerate(binary_counts.values):
-        axes[0].text(i, v + 500, str(v), ha="center")
-
-    attack_only = train_df[train_df["label"] != "normal"]["label"].value_counts().head(10)
-    axes[1].barh(attack_only.index[::-1], attack_only.values[::-1], color="#dd8452")
-    axes[1].set_title("Top 10 Attack Types — Training Set")
-    axes[1].set_xlabel("Number of connections")
-
-    plt.tight_layout()
-    plt.savefig(ARTIFACT_DIR / "class_distribution.png", dpi=120)
+def plot_class_distribution(train_df):
+    counts = (train_df["label"] != "normal").map({True: "Attack", False: "Normal"}).value_counts()
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.bar(counts.index, counts.values)
+    ax.set_title("NSL-KDD: Normal vs Attack")
+    ax.set_ylabel("Connections")
+    fig.tight_layout()
+    fig.savefig(ARTIFACT_DIR / "class_distribution.png", dpi=120)
     plt.close(fig)
-    print("\nAttack type distribution shows this isn't just 'normal vs attack' —")
-    print("some types (e.g. neptune, smurf) are common; others are extremely rare,")
-    print("a secondary imbalance problem inside the attack class itself.")
 
 
-# ============================================================================
-# 3. PREPROCESSING
-# ============================================================================
-def preprocess(train_df: pd.DataFrame, test_df: pd.DataFrame):
+def preprocess(train_df, test_df):
     train_df = train_df.drop(columns=["difficulty"]).copy()
     test_df = test_df.drop(columns=["difficulty"]).copy()
-
-    print("\nDuplicate rows in train:", train_df.duplicated().sum())
     train_df = train_df.drop_duplicates()
 
-    numeric_cols = [c for c in train_df.select_dtypes(include=["int64", "float64"]).columns]
+    numeric_cols = train_df.select_dtypes(include=["int64", "float64"]).columns.tolist()
     for c in numeric_cols:
         train_df[c] = train_df[c].replace(-1, np.nan)
         test_df[c] = test_df[c].replace(-1, np.nan)
 
     medians = {}
     for c in numeric_cols:
-        m = float(train_df[c].median())
-        medians[c] = m
-        train_df[c] = train_df[c].fillna(m)
-        test_df[c] = test_df[c].fillna(m)
+        medians[c] = float(train_df[c].median())
+        train_df[c] = train_df[c].fillna(medians[c])
+        test_df[c] = test_df[c].fillna(medians[c])
 
     cat_cols = ["protocol_type", "service", "flag"]
     modes = {}
+    encoders = {}
     for c in cat_cols:
-        mo = str(train_df[c].mode()[0])
-        modes[c] = mo
-        train_df[c] = train_df[c].fillna(mo)
-        test_df[c] = test_df[c].fillna(mo)
+        modes[c] = str(train_df[c].mode()[0])
+        train_df[c] = train_df[c].fillna(modes[c])
+        test_df[c] = test_df[c].fillna(modes[c])
+        le = LabelEncoder()
+        le.fit(train_df[c])
+        train_df[c] = le.transform(train_df[c])
+        test_df[c] = test_df[c].map(lambda x: x if x in set(le.classes_) else le.classes_[0])
+        test_df[c] = le.transform(test_df[c])
+        encoders[c] = le
 
     train_df["binary_label"] = (train_df["label"] != "normal").astype(int)
     test_df["binary_label"] = (test_df["label"] != "normal").astype(int)
 
-    print("\nClass balance (train):")
-    print(train_df["binary_label"].value_counts(normalize=True).rename({0: "normal", 1: "attack"}))
-
-    # Outlier capping — normal class only. Attack-side extremes are signal,
-    # not noise, so they are left untouched.
-    skewed = [c for c in ["duration", "src_bytes", "dst_bytes", "count", "srv_count"]
-              if c in train_df.columns]
-
-    # Cast to float first — these are int64 columns, and clipping with float
-    # quantile bounds raises a dtype error on newer pandas otherwise.
+    skewed = [c for c in ["duration", "src_bytes", "dst_bytes", "count", "srv_count"] if c in train_df]
+    normal_mask = train_df["binary_label"] == 0
     for c in skewed:
         train_df[c] = train_df[c].astype(float)
         test_df[c] = test_df[c].astype(float)
-
-    normal_mask = train_df["binary_label"] == 0
-    for c in skewed:
         lo, hi = train_df.loc[normal_mask, c].quantile([0.01, 0.99])
         train_df.loc[normal_mask, c] = train_df.loc[normal_mask, c].clip(lo, hi)
-
-    for c in skewed:
-        train_df[c] = np.log1p(train_df[c])
-        test_df[c] = np.log1p(test_df[c])
-
-    encoders = {}
-    for c in cat_cols:
-        le = LabelEncoder()
-        le.fit(pd.concat([train_df[c], test_df[c]], axis=0))
-        train_df[c] = le.transform(train_df[c])
-        test_df[c] = le.transform(test_df[c])
-        encoders[c] = le
+        train_df[c] = np.log1p(train_df[c].clip(lower=0))
+        test_df[c] = np.log1p(test_df[c].clip(lower=0))
 
     feature_cols = [c for c in train_df.columns if c not in ("label", "binary_label")]
-    corr_matrix = train_df[feature_cols].corr().abs()
-    upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
+    corr = train_df[feature_cols].corr().abs()
+    upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
     redundant = [c for c in upper.columns if any(upper[c] > 0.95)]
-    print(f"\nDropping {len(redundant)} highly correlated redundant features: {redundant}")
     feature_cols = [c for c in feature_cols if c not in redundant]
 
     meta = {
-        "medians": medians,
-        "modes": modes,
-        "skewed_cols": skewed,
-        "encoders": encoders,
-        "feature_cols": feature_cols,
+        "medians": medians, "modes": modes, "encoders": encoders,
+        "skewed_cols": skewed, "feature_cols": feature_cols,
         "redundant_dropped": redundant,
     }
     return train_df, test_df, meta
 
 
-# ============================================================================
-# 4. EVALUATION HELPER
-# ============================================================================
-def evaluate(name, y_test, y_pred, y_proba):
-    cm = confusion_matrix(y_test, y_pred)
+def metrics(y_true, y_pred, y_score):
+    cm = confusion_matrix(y_true, y_pred)
     tn, fp, fn, tp = cm.ravel()
-    precision = precision_score(y_test, y_pred)
-    recall = recall_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred)
-    fpr = fp / (fp + tn)
-    fnr = fn / (fn + tp)
-    prec_curve, rec_curve, thresholds = precision_recall_curve(y_test, y_proba)
-    pr_auc = auc(rec_curve, prec_curve)
-
-    print(f"\n=== {name} ===")
-    print(cm)
-    print(f"Precision {precision:.3f}  Recall {recall:.3f}  F1 {f1:.3f}  "
-          f"FPR {fpr:.4f}  FNR {fnr:.4f}  PR-AUC {pr_auc:.3f}")
-
-    return dict(cm=cm, precision=precision, recall=recall, f1=f1, fpr=fpr, fnr=fnr,
-                pr_auc=pr_auc, prec_curve=prec_curve, rec_curve=rec_curve, thresholds=thresholds)
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    recall = recall_score(y_true, y_pred, zero_division=0)
+    f1 = f1_score(y_true, y_pred, zero_division=0)
+    fpr = fp / max(fp + tn, 1)
+    fnr = fn / max(fn + tp, 1)
+    p, r, _ = precision_recall_curve(y_true, y_score)
+    return {
+        "cm": cm.tolist(), "precision": float(precision), "recall": float(recall),
+        "f1": float(f1), "fpr": float(fpr), "fnr": float(fnr),
+        "pr_auc": float(auc(r, p)),
+    }
 
 
-def slugify(name: str) -> str:
-    return name.lower().replace(" ", "_").replace("(", "").replace(")", "")
+def slugify(name):
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
 
 
-def _to_native(v):
-    return v.item() if hasattr(v, "item") else v
-
-
-def build_sample_dataset(test_df_raw: pd.DataFrame, per_label: int = 3, max_total: int = 30):
-    """A small, class-diverse sample of REAL, untransformed test-set
-    connections (several normal + several distinct attack types), in the
-    exact raw shape the API expects. This is what powers the dashboard's
-    'live dataset' option once a backend is connected — real traffic, not
-    hand-set demo numbers."""
+def build_samples(raw_test, per_label=3, max_total=30):
     rows = []
-    for label, grp in test_df_raw.groupby("label"):
+    for label, grp in raw_test.groupby("label"):
         take = grp.sample(min(len(grp), per_label), random_state=42)
-        for _, r in take.iterrows():
-            rec = {c: _to_native(r[c]) for c in RAW_FEATURE_COLS}
+        for _, row in take.iterrows():
+            rec = {c: (v.item() if hasattr(v, "item") else v) for c, v in row[RAW_FEATURE_COLS].items()}
             rec["attack_type"] = label
             rec["true_label"] = "normal" if label == "normal" else "attack"
             rows.append(rec)
@@ -244,234 +178,279 @@ def build_sample_dataset(test_df_raw: pd.DataFrame, per_label: int = 3, max_tota
     return rows[:max_total]
 
 
-# ============================================================================
-# MAIN
-# ============================================================================
+def fit_score_supervised(name, model, X_train, y_train, X_test, y_test, sample_weight=None):
+    if sample_weight is not None:
+        try:
+            model.fit(X_train, y_train, sample_weight=sample_weight)
+        except TypeError:
+            model.fit(X_train, y_train)
+    else:
+        model.fit(X_train, y_train)
+    score = model.predict_proba(X_test)[:, 1]
+    pred = (score >= 0.5).astype(int)
+    return model, metrics(y_test, pred, score)
+
+
 def main():
-    train_df, test_df = load_data()
-    test_df_raw = test_df.copy()  # untransformed — used later for real sample records
-    plot_class_distribution(train_df)
+    print("Loading NSL-KDD...")
+    train_raw, test_raw = load_data()
+    plot_class_distribution(train_raw)
+    train_df, test_df, meta = preprocess(train_raw, test_raw)
 
-    train_df, test_df, meta = preprocess(train_df, test_df)
     feature_cols = meta["feature_cols"]
-
-    X_train, y_train = train_df[feature_cols], train_df["binary_label"]
-    X_test, y_test = test_df[feature_cols], test_df["binary_label"]
+    X_train = train_df[feature_cols]
+    y_train = train_df["binary_label"]
+    X_test = test_df[feature_cols]
+    y_test = test_df["binary_label"]
 
     scaler = RobustScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    print(f"\nFinal feature count: {len(feature_cols)}")
-    print(f"Train shape: {X_train_scaled.shape}, Test shape: {X_test_scaled.shape}")
+    X_train_scaled = scaler.fit_transform(X_train).astype(np.float32)
+    X_test_scaled = scaler.transform(X_test).astype(np.float32)
 
-    # ---- Imbalance handling: class-weighting (always) vs SMOTE (if available) ----
-    smote_available = False
+    from imblearn.over_sampling import SMOTE
+    smote = SMOTE(random_state=42, k_neighbors=3)
+    X_smote, y_smote = smote.fit_resample(X_train_scaled, y_train)
+    X_smote = X_smote.astype(np.float32)
+    y_smote = np.asarray(y_smote)
+
+    counts = np.bincount(y_train)
+    ratio = float(counts[0] / max(counts[1], 1))
+    sample_weight = np.where(y_train.to_numpy() == 1, ratio, 1.0)
+
+    models = {}
+    # Baselines
+    models["Logistic Regression"] = (LogisticRegression(max_iter=500, class_weight="balanced"), "baseline", "class_weight")
+    models["Gaussian Naive Bayes"] = (GaussianNB(), "baseline", "none")
+    models["KNN (k=5)"] = (KNeighborsClassifier(n_neighbors=5, n_jobs=-1), "baseline", "none")
+    models["SVM (linear)"] = (
+        CalibratedClassifierCV(LinearSVC(class_weight="balanced", max_iter=2000, random_state=42), cv=3),
+        "baseline", "class_weight",
+    )
+    # Our / candidate models
+    models["Decision Tree"] = (DecisionTreeClassifier(class_weight="balanced", max_depth=10, random_state=42), "ours", "class_weight")
+    models["Random Forest"] = (
+        RandomForestClassifier(n_estimators=100, class_weight="balanced", max_depth=14, n_jobs=2, random_state=42),
+        "ours", "class_weight",
+    )
+    models["Extra Trees"] = (
+        ExtraTreesClassifier(n_estimators=100, class_weight="balanced", max_depth=16, n_jobs=2, random_state=42),
+        "ours", "class_weight",
+    )
+    models["Gradient Boosting"] = (
+        GradientBoostingClassifier(n_estimators=100, learning_rate=0.08, max_depth=3, random_state=42),
+        "ours", "sample_weight",
+    )
+    models["AdaBoost"] = (AdaBoostClassifier(n_estimators=100, learning_rate=0.08, random_state=42), "ours", "sample_weight")
+    models["HistGradientBoosting"] = (
+        HistGradientBoostingClassifier(max_iter=100, learning_rate=0.08, max_leaf_nodes=31, random_state=42),
+        "ours", "sample_weight",
+    )
+    models["MLP Neural Network"] = (
+        MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=45, early_stopping=True, random_state=42),
+        "ours", "SMOTE",
+    )
+    models["Random Forest (SMOTE)"] = (
+        RandomForestClassifier(n_estimators=100, max_depth=14, n_jobs=2, random_state=42),
+        "ours", "SMOTE",
+    )
+    models["Extra Trees (SMOTE)"] = (
+        ExtraTreesClassifier(n_estimators=100, max_depth=16, n_jobs=2, random_state=42),
+        "ours", "SMOTE",
+    )
+
+    # Optional external gradient boosters. They are required by requirements.txt,
+    # but imports remain defensive for local environments.
     try:
-        from imblearn.over_sampling import SMOTE
-        smote = SMOTE(random_state=42)
-        X_train_smote, y_train_smote = smote.fit_resample(X_train_scaled, y_train)
-        smote_available = True
-    except ImportError:
-        print("\n`imbalanced-learn` not installed — skipping SMOTE comparison "
-              "(run `pip install imbalanced-learn` to enable it).")
-
-    # ---- Model training ----
-    # "Ours" = the models this project selects/recommends. "Baseline" = the
-    # other model families Task 5 asks us to evaluate for comparison, kept
-    # deliberately fast approximations (LinearSVC, not kernel SVC; k=5 NN)
-    # in line with constraint #5 (limited compute for real-time detection).
-    OURS = {
-        "Decision Tree": DecisionTreeClassifier(class_weight="balanced", max_depth=10, random_state=42),
-        "Random Forest": RandomForestClassifier(
-            n_estimators=200, class_weight="balanced", max_depth=15, n_jobs=-1, random_state=42
-        ),
-    }
-    BASELINES = {
-        "SVM (linear)": CalibratedClassifierCV(
-            LinearSVC(class_weight="balanced", max_iter=2000, random_state=42), cv=3
-        ),
-        "KNN (k=5)": KNeighborsClassifier(n_neighbors=5, n_jobs=-1),
-    }
-    models = {**OURS, **BASELINES}
-    if smote_available:
-        OURS["Random Forest (SMOTE)"] = None  # placeholder so the group lookup below finds it
-        models["Random Forest (SMOTE)"] = RandomForestClassifier(
-            n_estimators=200, max_depth=15, n_jobs=-1, random_state=42
+        from xgboost import XGBClassifier
+        models["XGBoost"] = (
+            XGBClassifier(n_estimators=120, max_depth=6, learning_rate=0.08,
+                          subsample=.8, colsample_bytree=.8, scale_pos_weight=ratio,
+                          eval_metric="logloss", n_jobs=2, tree_method="hist", random_state=42),
+            "ours", "class_weight",
         )
-    model_group = {name: "ours" for name in OURS}
-    model_group.update({name: "baseline" for name in BASELINES})
+    except Exception as e:
+        print("Skipping XGBoost:", e)
+
+    try:
+        from lightgbm import LGBMClassifier
+        models["LightGBM"] = (
+            LGBMClassifier(n_estimators=120, num_leaves=31, max_depth=8,
+                           learning_rate=.08, class_weight="balanced",
+                           verbosity=-1, n_jobs=2, random_state=42),
+            "ours", "class_weight",
+        )
+    except Exception as e:
+        print("Skipping LightGBM:", e)
+
+    try:
+        from catboost import CatBoostClassifier
+        models["CatBoost"] = (
+            CatBoostClassifier(iterations=120, depth=7, learning_rate=.08,
+                               loss_function="Logloss", verbose=False, thread_count=2,
+                               class_weights=[1.0, ratio], random_seed=42),
+            "ours", "class_weight",
+        )
+    except Exception as e:
+        print("Skipping CatBoost:", e)
 
     results = {}
-    for name, model in models.items():
-        if name.endswith("(SMOTE)"):
-            model.fit(X_train_smote, y_train_smote)
+    for name, (mdl, group, strategy) in models.items():
+        print("Training:", name, " [", strategy, "]")
+        if strategy == "SMOTE":
+            fitted, met = fit_score_supervised(name, mdl, X_smote, y_smote, X_test_scaled, y_test)
+        elif strategy == "sample_weight":
+            fitted, met = fit_score_supervised(name, mdl, X_train_scaled, y_train, X_test_scaled, y_test, sample_weight)
         else:
-            model.fit(X_train_scaled, y_train)
-        y_pred = model.predict(X_test_scaled)
-        y_proba = model.predict_proba(X_test_scaled)[:, 1]
-        results[name] = {"model": model, "y_pred": y_pred, "y_proba": y_proba}
+            fitted, met = fit_score_supervised(name, mdl, X_train_scaled, y_train, X_test_scaled, y_test)
+        results[name] = {"model": fitted, "metrics": met, "group": group, "strategy": strategy}
 
-    eval_results = {
-        name: evaluate(name, y_test, r["y_pred"], r["y_proba"]) for name, r in results.items()
+    # Anomaly models learn NORMAL traffic only. Risk scores are adapters, not
+    # calibrated probabilities.
+    normal_train = X_train_scaled[y_train.to_numpy() == 0]
+    normal_train = normal_train[:20000]
+    anomaly_train = normal_train[:5000]
+
+    anomaly_specs = [
+        ("Isolation Forest", IsolationForest(n_estimators=120, contamination="auto", random_state=42, n_jobs=2)),
+        ("One-Class SVM", OneClassSVM(kernel="rbf", gamma="scale", nu=0.05)),
+        ("Local Outlier Factor", LocalOutlierFactor(n_neighbors=35, novelty=True, contamination="auto", n_jobs=2)),
+    ]
+    for name, detector in anomaly_specs:
+        print("Training:", name, " [normal-only]")
+        detector.fit(anomaly_train)
+        train_scores = detector.decision_function(anomaly_train)
+        low, high = np.percentile(train_scores, [1, 99])
+        wrapped = AnomalyProbabilityWrapper(detector, low, high)
+        score = wrapped.predict_proba(X_test_scaled)[:, 1]
+        pred = (score >= 0.5).astype(int)
+        results[name] = {
+            "model": wrapped, "metrics": metrics(y_test, pred, score),
+            "group": "anomaly", "strategy": "normal-only",
+        }
+
+    print("Training: Autoencoder [normal-only]")
+    auto = MLPRegressor(hidden_layer_sizes=(32, 16, 32), max_iter=35,
+                        early_stopping=True, random_state=42)
+    auto.fit(anomaly_train, anomaly_train)
+    train_recon = auto.predict(anomaly_train)
+    train_err = np.mean((anomaly_train - train_recon) ** 2, axis=1)
+    low, high = np.percentile(train_err, [1, 99])
+    auto_wrapped = ReconstructionProbabilityWrapper(auto, low, high)
+    auto_score = auto_wrapped.predict_proba(X_test_scaled)[:, 1]
+    auto_pred = (auto_score >= 0.5).astype(int)
+    results["Autoencoder"] = {
+        "model": auto_wrapped, "metrics": metrics(y_test, auto_pred, auto_score),
+        "group": "anomaly", "strategy": "normal-only",
     }
 
-    best_name = max(eval_results, key=lambda n: eval_results[n]["pr_auc"])
-    print(f"\nBest model by PR-AUC: {best_name}")
-    best_model = results[best_name]["model"]
-    y_pred_best = results[best_name]["y_pred"]
-    y_scores = results[best_name]["y_proba"]
+    # Choose the best supervised model by PR-AUC. Anomaly detectors are
+    # retained for comparison but are not automatically promoted to production.
+    supervised_names = [n for n, r in results.items() if r["group"] != "anomaly"]
+    best_name = max(supervised_names, key=lambda n: results[n]["metrics"]["pr_auc"])
 
-    # ---- Confusion matrix plot for the chosen model ----
-    cm = eval_results[best_name]["cm"]
-    plt.figure(figsize=(4, 4))
-    plt.imshow(cm, cmap="Blues")
-    for i in range(2):
-        for j in range(2):
-            plt.text(j, i, cm[i, j], ha="center", va="center")
-    plt.xticks([0, 1], ["Normal", "Attack"])
-    plt.yticks([0, 1], ["Normal", "Attack"])
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
-    plt.title(f"Confusion Matrix — {best_name}")
-    plt.tight_layout()
-    plt.savefig(ARTIFACT_DIR / "confusion_matrix.png", dpi=120)
-    plt.close()
-
-    # ---- Threshold analysis (Task 7) ----
-    prec_curve = eval_results[best_name]["prec_curve"]
-    rec_curve = eval_results[best_name]["rec_curve"]
-    thresholds = eval_results[best_name]["thresholds"]
-
-    plt.figure(figsize=(6, 4))
-    plt.plot(thresholds, prec_curve[:-1], label="Precision")
-    plt.plot(thresholds, rec_curve[:-1], label="Recall")
-    plt.xlabel("Decision Threshold")
-    plt.ylabel("Score")
-    plt.title(f"Precision & Recall vs Threshold — {best_name}")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(ARTIFACT_DIR / "threshold_curve.png", dpi=120)
-    plt.close()
-
-    print("\nThreshold sweep:")
-    for t in [0.3, 0.5, 0.7, 0.9]:
-        pred_t = (y_scores >= t).astype(int)
-        print(f"Threshold={t:.1f}  Precision={precision_score(y_test, pred_t):.3f}  "
-              f"Recall={recall_score(y_test, pred_t):.3f}  Alerts={pred_t.sum()}")
-
-    # ---- Engineering decision scenario: System A vs System B (Task 8) ----
-    scenario = pd.DataFrame({
-        "System": ["A", "B"],
-        "Alerts/day": [50, 10],
-        "Genuine attacks detected": [18, 5],
-        "Total genuine attacks": [20, 20],
-    })
-    scenario["Recall"] = scenario["Genuine attacks detected"] / scenario["Total genuine attacks"]
-    scenario["Missed attacks"] = scenario["Total genuine attacks"] - scenario["Genuine attacks detected"]
-    print("\nSystem A vs System B:\n", scenario.to_string(index=False))
-    scenario.to_csv(ARTIFACT_DIR / "system_ab_scenario.csv", index=False)
-
-    # ---- Zero-day / unseen attack analysis (Task 9) ----
-    train_attack_types = set(train_df["label"].unique()) - {"normal"}
-    test_attack_types = set(test_df["label"].unique()) - {"normal"}
-    unseen_types = test_attack_types - train_attack_types
-    print(f"\nUnseen attack types in test set ({len(unseen_types)}):", sorted(unseen_types))
-
-    unseen_mask = test_df["label"].isin(unseen_types)
-    if unseen_mask.sum() > 0:
-        unseen_recall = recall_score(y_test[unseen_mask], y_pred_best[unseen_mask])
-        known_mask = (~unseen_mask) & (y_test == 1)
-        known_recall = (
-            recall_score(y_test[known_mask], y_pred_best[known_mask]) if known_mask.sum() else float("nan")
-        )
-        print(f"Recall on unseen attack types: {unseen_recall:.3f}")
-        print(f"Recall on known attack types:  {known_recall:.3f}")
-
-        breakdown = []
-        for atk in sorted(unseen_types):
-            idx = (test_df["label"] == atk).values
-            n = idx.sum()
-            if n == 0:
-                continue
-            detected = y_pred_best[idx].sum()
-            breakdown.append({
-                "attack_type": atk, "samples": int(n), "detected": int(detected),
-                "missed": int(n - detected), "detection_rate": round(float(detected / n), 3),
-            })
-        breakdown_df = pd.DataFrame(breakdown).sort_values("detection_rate")
-        print("\nPer-attack-type breakdown (zero-day types):\n", breakdown_df.to_string(index=False))
-        breakdown_df.to_csv(ARTIFACT_DIR / "zero_day_breakdown.csv", index=False)
-
-    # ---- Summary table across all models ----
-    summary = pd.DataFrame({
-        "Model": list(eval_results.keys()),
-        "Precision": [eval_results[n]["precision"] for n in eval_results],
-        "Recall": [eval_results[n]["recall"] for n in eval_results],
-        "F1": [eval_results[n]["f1"] for n in eval_results],
-        "FPR": [eval_results[n]["fpr"] for n in eval_results],
-        "FNR": [eval_results[n]["fnr"] for n in eval_results],
-        "PR-AUC": [eval_results[n]["pr_auc"] for n in eval_results],
-    }).round(3)
-    print("\nModel comparison:\n", summary.to_string(index=False))
+    # Save summary
+    summary_rows = []
+    for name, r in results.items():
+        m = r["metrics"]
+        summary_rows.append({
+            "Model": name, "Group": r["group"], "Imbalance Strategy": r["strategy"],
+            "Precision": round(m["precision"], 4), "Recall": round(m["recall"], 4),
+            "F1": round(m["f1"], 4), "FPR": round(m["fpr"], 4),
+            "FNR": round(m["fnr"], 4), "PR-AUC": round(m["pr_auc"], 4),
+        })
+    summary = pd.DataFrame(summary_rows)
     summary.to_csv(ARTIFACT_DIR / "model_comparison.csv", index=False)
 
-    # ---- Feature importance plot ----
-    if hasattr(best_model, "feature_importances_"):
-        importances = pd.Series(best_model.feature_importances_, index=feature_cols) \
-            .sort_values(ascending=False).head(10)
-        plt.figure(figsize=(6, 4))
-        plt.barh(importances.index[::-1], importances.values[::-1])
-        plt.title(f"Top 10 Feature Importances — {best_name}")
-        plt.tight_layout()
-        plt.savefig(ARTIFACT_DIR / "feature_importance.png", dpi=120)
-        plt.close()
+    # Confusion matrix + threshold curve for selected production candidate.
+    best = results[best_name]
+    best_score = best["model"].predict_proba(X_test_scaled)[:, 1]
+    best_pred = (best_score >= .5).astype(int)
+    cm = confusion_matrix(y_test, best_pred)
+    fig, ax = plt.subplots(figsize=(4, 4))
+    ax.imshow(cm)
+    for i in range(2):
+        for j in range(2):
+            ax.text(j, i, cm[i, j], ha="center", va="center")
+    ax.set_xticks([0, 1], ["Normal", "Attack"])
+    ax.set_yticks([0, 1], ["Normal", "Attack"])
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.set_title("Confusion Matrix — " + best_name)
+    fig.tight_layout()
+    fig.savefig(ARTIFACT_DIR / "confusion_matrix.png", dpi=120)
+    plt.close(fig)
 
-    # ---- Export artifacts for deployment ----
-    # Save every trained model individually (not just the best one) so the
-    # API can offer real side-by-side model comparison, not just one opinion.
+    p, r, thresholds = precision_recall_curve(y_test, best_score)
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(thresholds, p[:-1], label="Precision")
+    ax.plot(thresholds, r[:-1], label="Recall")
+    ax.set_xlabel("Decision Threshold")
+    ax.set_ylabel("Score")
+    ax.set_title("Precision / Recall vs Threshold")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(ARTIFACT_DIR / "threshold_curve.png", dpi=120)
+    plt.close(fig)
+
+    # Feature importance where available.
+    if hasattr(best["model"], "feature_importances_"):
+        imp = pd.Series(best["model"].feature_importances_, index=feature_cols).nlargest(10)
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.barh(imp.index[::-1], imp.values[::-1])
+        ax.set_title("Top Feature Importances — " + best_name)
+        fig.tight_layout()
+        fig.savefig(ARTIFACT_DIR / "feature_importance.png", dpi=120)
+        plt.close(fig)
+
+    # Deployment artifacts.
     slug_map = {name: slugify(name) for name in results}
     for name, r in results.items():
         joblib.dump(r["model"], ARTIFACT_DIR / f"model_{slug_map[name]}.joblib")
 
-    joblib.dump(best_model, ARTIFACT_DIR / "model.joblib")
+    joblib.dump(results[best_name]["model"], ARTIFACT_DIR / "model.joblib")
     joblib.dump(scaler, ARTIFACT_DIR / "scaler.joblib")
     joblib.dump(meta["encoders"], ARTIFACT_DIR / "encoders.joblib")
 
-    all_models_meta = [
-        {
-            "name": name,
-            "slug": slug_map[name],
-            "group": model_group.get(name, "baseline"),
-            "precision": round(float(eval_results[name]["precision"]), 4),
-            "recall": round(float(eval_results[name]["recall"]), 4),
-            "f1": round(float(eval_results[name]["f1"]), 4),
-            "fpr": round(float(eval_results[name]["fpr"]), 4),
-            "fnr": round(float(eval_results[name]["fnr"]), 4),
-            "pr_auc": round(float(eval_results[name]["pr_auc"]), 4),
-        }
-        for name in eval_results
-    ]
+    all_meta = []
+    for name, r in results.items():
+        m = r["metrics"]
+        all_meta.append({
+            "name": name, "slug": slug_map[name], "group": r["group"],
+            "strategy": r["strategy"], "precision": round(m["precision"], 4),
+            "recall": round(m["recall"], 4), "f1": round(m["f1"], 4),
+            "fpr": round(m["fpr"], 4), "fnr": round(m["fnr"], 4),
+            "pr_auc": round(m["pr_auc"], 4),
+        })
 
     deploy_meta = {
-        "feature_cols": feature_cols,
-        "skewed_cols": meta["skewed_cols"],
-        "medians": meta["medians"],
-        "modes": meta["modes"],
-        "best_model_name": best_name,
-        "default_threshold": 0.5,
-        "all_models": all_models_meta,
+        "feature_cols": feature_cols, "skewed_cols": meta["skewed_cols"],
+        "medians": meta["medians"], "modes": meta["modes"],
+        "best_model_name": best_name, "default_threshold": 0.5,
+        "all_models": all_meta,
+        "dataset": "NSL-KDD",
+        "supported_imbalance_strategies": [
+            "none", "class_weight", "SMOTE", "sample_weight", "normal-only"
+        ],
     }
-    with open(ARTIFACT_DIR / "deploy_meta.json", "w") as f:
-        json.dump(deploy_meta, f, indent=2)
+    (ARTIFACT_DIR / "deploy_meta.json").write_text(json.dumps(deploy_meta, indent=2, default=str))
 
-    # ---- Real sample dataset for the dashboard's live mode ----
-    sample_dataset = build_sample_dataset(test_df_raw)
-    with open(ARTIFACT_DIR / "sample_dataset.json", "w") as f:
-        json.dump(sample_dataset, f, indent=2, default=_to_native)
-    print(f"\nSaved {len(sample_dataset)} real sample connections to sample_dataset.json")
+    (ARTIFACT_DIR / "sample_dataset.json").write_text(json.dumps(
+        build_samples(test_raw), indent=2, default=lambda v: v.item() if hasattr(v, "item") else v
+    ))
 
-    print(f"\nArtifacts saved to {ARTIFACT_DIR.resolve()}/")
-    print("Files:", sorted(p.name for p in ARTIFACT_DIR.iterdir()))
+    # System A/B engineering scenario from the assignment.
+    scenario = pd.DataFrame({
+        "System": ["A", "B"], "Alerts/day": [50, 10],
+        "Genuine attacks detected": [18, 5], "Total genuine attacks": [20, 20],
+    })
+    scenario["Recall"] = scenario["Genuine attacks detected"] / scenario["Total genuine attacks"]
+    scenario["Missed attacks"] = scenario["Total genuine attacks"] - scenario["Genuine attacks detected"]
+    scenario.to_csv(ARTIFACT_DIR / "system_ab_scenario.csv", index=False)
+
+    print("\nSUCCESS")
+    print("Best supervised model by PR-AUC:", best_name)
+    print("Models trained:", len(results))
+    print(summary.sort_values("PR-AUC", ascending=False).to_string(index=False))
 
 
 if __name__ == "__main__":

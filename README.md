@@ -14,7 +14,7 @@ Security Analyst → Feedback → Model Retraining
 |---|---|
 | Data Collection | `train_pipeline.py::load_data()` (NSL-KDD here; swap for a live feed in production) |
 | Preprocessing + Feature Engineering | `train_pipeline.py::preprocess()` |
-| ML Model | `train_pipeline.py` — Decision Tree, Random Forest, Random Forest+SMOTE, compared by PR-AUC |
+| ML Model | `train_pipeline.py` — full supervised + anomaly model suite, compared with precision, recall, F1, FPR, FNR and PR-AUC |
 | Risk Score | `model.predict_proba()`, exposed via `app.py`'s `risk_score` field |
 | Decision Threshold | `deploy_meta.json::default_threshold`, overridable per-request in `app.py` |
 | Alert Classification | `app.py::/predict`, `/predict_all`, `/predict_batch` |
@@ -23,18 +23,18 @@ Security Analyst → Feedback → Model Retraining
 
 ## Files
 
-- `train_pipeline.py` — loads NSL-KDD, cleans it, handles class imbalance,
-  trains **our** models (Decision Tree, Random Forest, Random Forest+SMOTE)
-  plus two **baseline** model families Task 5 asks us to evaluate (a linear
-  SVM and KNN, kept as fast approximations in line with the compute
-  constraint), evaluates all five (confusion matrix, precision, recall, F1,
-  FPR, FNR, PR-AUC), runs the threshold sweep, the System A/B scenario, and
-  the zero-day breakdown. Saves **every** trained model into `artifacts/`,
-  plus a small real sample of test-set connections, so the API can serve
-  genuine multi-model comparison on genuine traffic.
+- `train_pipeline.py` — loads NSL-KDD, preprocesses it, handles class imbalance,
+  and trains a broad comparison suite: Logistic Regression, Gaussian Naive Bayes,
+  KNN, linear SVM, Decision Tree, Random Forest, Extra Trees, Gradient Boosting,
+  AdaBoost, HistGradientBoosting, XGBoost, LightGBM, CatBoost, MLP Neural Network,
+  Isolation Forest, One-Class SVM and Local Outlier Factor. SMOTE variants are
+  included for Random Forest, Extra Trees and MLP; class-weighted and
+  sample-weighted strategies are used where supported. Each successful model is
+  evaluated on the same held-out NSL-KDD test set and saved to `artifacts/`.
 - `app.py` — FastAPI service that loads `artifacts/` and exposes:
-  `/predict` (best model), `/predict_all` (every model, tagged `ours` or
-  `baseline`), `/models` (each model's held-out metrics), and `/dataset`
+  `/predict` (best supervised model), `/predict_all` (every available model,
+  including anomaly detectors), `/models` (held-out metrics + imbalance
+  strategy), and `/dataset`
   (a real, class-diverse sample of test-set connections).
 - `docs/index.html` — a self-contained, no-build dashboard: pick a sample
   connection, see every model's risk score side-by-side grouped into "our
