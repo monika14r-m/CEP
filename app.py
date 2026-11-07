@@ -26,9 +26,17 @@ from typing import List, Optional
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+from fastapi.exceptions import RequestValidationError
+from api_schemas import (
+    ConnectionBatch,
+    ConnectionRecord,
+    ThresholdValue,
+    safe_validation_error_response,
+)
 
 # Needed so joblib can deserialize anomaly-model adapters.
 from model_wrappers import AnomalyProbabilityWrapper  # noqa: F401
@@ -72,6 +80,8 @@ app = FastAPI(
     version="2.0.0",
 )
 
+app.add_exception_handler(RequestValidationError, safe_validation_error_response)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -79,50 +89,6 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
-
-
-class ConnectionRecord(BaseModel):
-    duration: float
-    protocol_type: str
-    service: str
-    flag: str
-    src_bytes: float
-    dst_bytes: float
-    land: int = 0
-    wrong_fragment: int = 0
-    urgent: int = 0
-    hot: int = 0
-    num_failed_logins: int = 0
-    logged_in: int = 0
-    num_compromised: int = 0
-    root_shell: int = 0
-    su_attempted: int = 0
-    num_root: int = 0
-    num_file_creations: int = 0
-    num_shells: int = 0
-    num_access_files: int = 0
-    num_outbound_cmds: int = 0
-    is_host_login: int = 0
-    is_guest_login: int = 0
-    count: int
-    srv_count: int
-    serror_rate: float = 0.0
-    srv_serror_rate: float = 0.0
-    rerror_rate: float = 0.0
-    srv_rerror_rate: float = 0.0
-    same_srv_rate: float = 0.0
-    diff_srv_rate: float = 0.0
-    srv_diff_host_rate: float = 0.0
-    dst_host_count: int = 0
-    dst_host_srv_count: int = 0
-    dst_host_same_srv_rate: float = 0.0
-    dst_host_diff_srv_rate: float = 0.0
-    dst_host_same_src_port_rate: float = 0.0
-    dst_host_srv_diff_host_rate: float = 0.0
-    dst_host_serror_rate: float = 0.0
-    dst_host_srv_serror_rate: float = 0.0
-    dst_host_rerror_rate: float = 0.0
-    dst_host_srv_rerror_rate: float = 0.0
 
 
 class PredictionResponse(BaseModel):
@@ -183,9 +149,9 @@ def dataset():
 
 
 @app.post("/predict", response_model=PredictionResponse)
-def predict(record: ConnectionRecord, threshold: Optional[float] = None):
+def predict(record: ConnectionRecord, threshold: Optional[ThresholdValue] = Query(default=None)):
     t = threshold if threshold is not None else DEFAULT_THRESHOLD
-    df = pd.DataFrame([record.dict()])
+    df = pd.DataFrame([record.model_dump()])
     X = _prepare_frame(df)
     X_scaled = scaler.transform(X)
     score = float(model.predict_proba(X_scaled)[0, 1])
@@ -193,11 +159,11 @@ def predict(record: ConnectionRecord, threshold: Optional[float] = None):
 
 
 @app.post("/predict_all")
-def predict_all(record: ConnectionRecord, threshold: Optional[float] = None):
+def predict_all(record: ConnectionRecord, threshold: Optional[ThresholdValue] = Query(default=None)):
     """Score one connection with every trained model side-by-side — powers
     the live model-comparison view in the dashboard."""
     t = threshold if threshold is not None else DEFAULT_THRESHOLD
-    df = pd.DataFrame([record.dict()])
+    df = pd.DataFrame([record.model_dump()])
     X = _prepare_frame(df)
     X_scaled = scaler.transform(X)
 
@@ -217,9 +183,9 @@ def predict_all(record: ConnectionRecord, threshold: Optional[float] = None):
 
 
 @app.post("/predict_batch", response_model=List[PredictionResponse])
-def predict_batch(records: List[ConnectionRecord], threshold: Optional[float] = None):
+def predict_batch(records: ConnectionBatch, threshold: Optional[ThresholdValue] = Query(default=None)):
     t = threshold if threshold is not None else DEFAULT_THRESHOLD
-    df = pd.DataFrame([r.dict() for r in records])
+    df = pd.DataFrame([r.model_dump() for r in records])
     X = _prepare_frame(df)
     X_scaled = scaler.transform(X)
     scores = model.predict_proba(X_scaled)[:, 1]
