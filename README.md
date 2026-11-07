@@ -137,6 +137,23 @@ your traffic pipeline (e.g. Kafka) and calls the same `_prepare_frame` +
 SOC tooling reads from (Splunk, a ticketing queue, etc.). The
 preprocessing/model logic doesn't change — only the transport does.
 
+## Request validation and tests
+
+The inference API validates incoming records before preprocessing:
+
+- Numeric feature values must be finite; unknown fields are rejected.
+- The dashboard's display-only `attack_type` and `true_label` fields remain accepted.
+- Optional decision thresholds must be finite values from 0 through 1.
+- `/predict_batch` accepts 1–256 records per request. Split larger jobs into smaller batches.
+- Invalid requests return HTTP 422 without echoing submitted feature values.
+
+Run the request-validation suite locally:
+
+```bash
+python -m pip install "fastapi>=0.110" "pydantic>=2.0" "httpx>=0.27" "pytest>=8"
+python -m pytest -q
+```
+
 ## Closing the loop (feedback + retraining)
 
 The pipeline trains once and stops there, which is fine for the
