@@ -6,6 +6,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY train_pipeline.py .
+COPY model_wrappers.py .
 RUN python train_pipeline.py
 
 # ---- Stage 2: slim runtime image ---------------------------------------
@@ -14,6 +15,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
+COPY api_schemas.py .
 COPY model_wrappers.py .
 COPY --from=builder /app/artifacts ./artifacts
 
