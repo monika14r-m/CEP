@@ -44,7 +44,10 @@ from sklearn.preprocessing import LabelEncoder, RobustScaler
 from sklearn.svm import LinearSVC, OneClassSVM
 from sklearn.tree import DecisionTreeClassifier
 
-from model_wrappers import AnomalyProbabilityWrapper
+from model_wrappers import (
+    AnomalyProbabilityWrapper,
+    ReconstructionProbabilityWrapper,
+)
 
 np.random.seed(42)
 ARTIFACT_DIR = Path(__file__).parent / "artifacts"

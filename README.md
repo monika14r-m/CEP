@@ -18,7 +18,7 @@ Security Analyst → Feedback → Model Retraining
 | Risk Score | `model.predict_proba()`, exposed via `app.py`'s `risk_score` field |
 | Decision Threshold | `deploy_meta.json::default_threshold`, overridable per-request in `app.py` |
 | Alert Classification | `app.py::/predict`, `/predict_all`, `/predict_batch` |
-| Security Analyst | `docs/index.html` — the live multi-model risk console |
+| Security Analyst | `index.html` — the live multi-model risk console |
 | Feedback / Retraining | Not automated here — see "Closing the loop" below |
 
 ## Files
@@ -36,7 +36,7 @@ Security Analyst → Feedback → Model Retraining
   including anomaly detectors), `/models` (held-out metrics + imbalance
   strategy), and `/dataset`
   (a real, class-diverse sample of test-set connections).
-- `docs/index.html` — a self-contained, no-build dashboard: pick a sample
+- `index.html` — a self-contained, no-build dashboard: pick a sample
   connection, see every model's risk score side-by-side grouped into "our
   models" vs "other baselines", and see at a glance where they agree or
   disagree. Works standalone in demo mode (illustrative numbers, clearly
@@ -56,7 +56,7 @@ python train_pipeline.py          # trains models, writes artifacts/ and PNG/CSV
 uvicorn app:app --reload --port 8000
 ```
 
-Open `docs/index.html` directly in a browser (demo mode), or paste
+Open `index.html` directly in a browser (demo mode), or paste
 `http://localhost:8000` into its "Backend API URL" field to drive it from
 your local API.
 
@@ -87,7 +87,7 @@ GitHub itself doesn't run a live Python process, so the pieces split:
 | Piece | Where it can live |
 |---|---|
 | Code, Dockerfile, CI | GitHub repo — works as-is |
-| `docs/index.html` dashboard | **GitHub Pages**, served directly, for free |
+| `index.html` dashboard | **GitHub Pages**, served directly, for free |
 | `app.py` FastAPI service | A container host — GitHub can *build* the image (Actions) but something else has to *run* it 24/7 |
 
 ### 1. Push the repo
@@ -104,7 +104,7 @@ git push -u origin main
 ### 2. Put the dashboard on GitHub Pages (free, static)
 
 Repo → **Settings → Pages** → Source: `Deploy from a branch` → Branch:
-`main`, folder `/docs` → Save. Your dashboard is now live at
+`main`, folder `/(root)` → Save. Your dashboard is now live at
 `https://<you>.github.io/<repo>/` in demo mode immediately — no backend
 required to look at and click through.
 
@@ -192,7 +192,7 @@ architecture diagram's feedback loop:
   the container crashes mid-traffic-spike — a real deployment needs
   redundancy and a fail-open/fail-closed decision (does traffic pass
   through unexamined, or queue, if the IDS is down?).
-- **Dashboard demo data**: `docs/index.html`'s sample connections are
+- **Dashboard demo data**: `index.html`'s sample connections are
   hand-set for illustration until it's pointed at a live backend — don't
   read its demo-mode numbers as real evaluated metrics; the real ones come
   from `artifacts/model_comparison.csv` and the `/models` endpoint.
