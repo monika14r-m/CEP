@@ -40,10 +40,31 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Smoke test the image
-        if: github.event_name == 'pull_request'
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
         run: |
-          docker build -t ml-ids:test .
-          docker run -d -p 8000:8000 --name ml-ids-test ml-ids:test
-          sleep 5
-          curl --fail http://localhost:8000/health
-          docker stop ml-ids-test
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            docker build -t ml-ids:test .
+          else
+            docker pull "${IMAGE_NAME}:latest"
+            docker tag "${IMAGE_NAME}:latest" ml-ids:test
+          fi
+
+          docker run --rm -d -p 127.0.0.1:8000:8000 --name ml-ids-smoke ml-ids:test
+          cleanup() {
+            docker rm -f ml-ids-smoke >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..20}; do
+            if curl --fail --silent --show-error http://127.0.0.1:8000/health; then
+              echo "Health endpoint passed on attempt ${attempt}"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Health endpoint did not become ready; container logs:"
+          docker logs ml-ids-smoke
+          exit 1
