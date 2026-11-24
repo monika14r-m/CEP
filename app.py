@@ -36,6 +36,7 @@ from api_schemas import (
     ConnectionRecord,
     ThresholdValue,
     safe_validation_error_response,
+    parse_allowed_origins,
 )
 
 # Needed so joblib can deserialize anomaly-model adapters.
@@ -70,9 +71,9 @@ if not ALL_MODELS:
 SAMPLE_DATASET_PATH = ARTIFACT_DIR / "sample_dataset.json"
 SAMPLE_DATASET = json.loads(SAMPLE_DATASET_PATH.read_text()) if SAMPLE_DATASET_PATH.exists() else []
 
-# Comma-separated list of allowed origins, e.g. "https://you.github.io".
-# Defaults to "*" for easy local/demo use — tighten this for production.
-ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+# Comma-separated allowed origins; unset defaults to "*" for local/demo.
+# An explicitly empty value denies cross-origin access. Entries are whitespace-trimmed.
+ALLOWED_ORIGINS = parse_allowed_origins(os.environ.get("ALLOWED_ORIGINS"))
 
 app = FastAPI(
     title="ML-IDS Inference Service",
