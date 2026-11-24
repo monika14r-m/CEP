@@ -14,6 +14,7 @@ from api_schemas import (
     ConnectionRecord,
     ThresholdValue,
     safe_validation_error_response,
+    parse_allowed_origins,
 )
 
 VALID_RECORD = {
@@ -133,3 +134,60 @@ def test_batch_schema_rejects_non_finite_values():
 def test_threshold_schema_rejects_non_finite_values():
     with pytest.raises(ValidationError):
         TypeAdapter(ThresholdValue).validate_python(math.nan)
+
+
+@pytest.mark.parametrize(("raw", "expected"), [
+    (None, ["*"]),
+    ("*", ["*"]),
+    ("*, https://admin.example", ["*"]),
+    ("https://dashboard.example, https://admin.example", ["https://dashboard.example", "https://admin.example"]),
+    (" https://dashboard.example , ,https://admin.example, ", ["https://dashboard.example", "https://admin.example"]),
+    ("", []),
+    ("   ", []),
+])
+def test_parse_allowed_origins_normalizes_entries(raw, expected):
+    assert parse_allowed_origins(raw) == expected
+
+
+
+def make_cors_client(raw):
+    from fastapi.middleware.cors import CORSMiddleware
+
+    cors_app = FastAPI()
+    cors_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=parse_allowed_origins(raw),
+        allow_credentials=False,
+        allow_methods=["GET"],
+        allow_headers=["*"],
+    )
+
+    @cors_app.get("/health")
+    def health():
+        return {"ok": True}
+
+    return TestClient(cors_app)
+
+
+
+def test_cors_allows_second_origin_after_whitespace_normalization():
+    response = make_cors_client("https://one.example, https://two.example").get(
+        "/health", headers={"Origin": "https://two.example"}
+    )
+    assert response.headers.get("access-control-allow-origin") == "https://two.example"
+
+
+
+def test_explicit_empty_cors_config_denies_cross_origin_access():
+    response = make_cors_client("").get(
+        "/health", headers={"Origin": "https://two.example"}
+    )
+    assert "access-control-allow-origin" not in response.headers
+
+
+
+def test_wildcard_cors_config_allows_any_origin():
+    response = make_cors_client(None).get(
+        "/health", headers={"Origin": "https://two.example"}
+    )
+    assert response.headers.get("access-control-allow-origin") == "*"
