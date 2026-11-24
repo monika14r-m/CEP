@@ -18,6 +18,20 @@ from pydantic import BaseModel, ConfigDict, Field
 
 MAX_BATCH_SIZE = 256
 
+
+def parse_allowed_origins(raw: Optional[str]) -> list[str]:
+    """Normalize comma-separated CORS origins.
+
+    Unset configuration keeps the development/demo wildcard. Explicit empty
+    configuration denies cross-origin access. Whitespace and empty entries
+    are ignored, and a wildcard takes precedence over other entries.
+    """
+    if raw is None:
+        return ["*"]
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return ["*"] if "*" in origins else origins
+
+
 ThresholdValue = Annotated[
     float,
     Field(ge=0.0, le=1.0, allow_inf_nan=False),
