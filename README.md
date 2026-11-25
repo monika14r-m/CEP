@@ -125,8 +125,13 @@ of these at that image, or build straight from the repo:
 
 Once deployed, paste that service's URL into the dashboard's "Backend API
 URL" field — it calls `/models` and `/predict_all` and switches from Demo
-mode to Live automatically. Set `ALLOWED_ORIGINS` on the API to your Pages
-URL (instead of `*`) to lock down CORS once you're past testing.
+mode to Live automatically. For production, configure `ALLOWED_ORIGINS` as a comma-separated allowlist. Each value is an origin (scheme + hostname + optional port), without a path. Replace these examples with the actual frontend domains:
+
+```env
+ALLOWED_ORIGINS=https://your-username.github.io,https://your-custom-domain.example
+```
+
+When the variable is unset, the API defaults to `*` for local/demo use. Avoid the wildcard in production: if `*` is present, it takes precedence over every other entry. An explicitly empty value denies cross-origin access. CORS credentials are disabled.
 
 ### 4. Batch/streaming instead of request/response
 
